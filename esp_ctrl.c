@@ -272,7 +272,8 @@ int sip_parse_events(struct esp_sip *sip, u8 *buf)
         			sprintf(filename, "%s/%s", FWPATH, "test_results");
 			else
         			sprintf(filename, "%s/%s", mod_eagle_path_get(), "test_results");
-			esp_readwrite_file(filename, NULL, test_res_str, strlen(test_res_str));
+//			esp_readwrite_file(filename, NULL, test_res_str, strlen(test_res_str));
+			esp_dbg (ESP_DBG_TRACE, "SNPRINTF TO HOST: %s\n", test_res_str);
 		}
                 break;
         }

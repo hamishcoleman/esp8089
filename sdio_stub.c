@@ -4,23 +4,13 @@
  *  sdio stub code for RK
  */
 
-#include <mach/gpio.h>
+//#include <mach/gpio.h>
 //#include <mach/iomux.h>
+
+#include <linux/mmc/host.h>
 
 #define ESP8089_DRV_VERSION "1.9"
 
-extern int rk29sdk_wifi_power(int on);
-extern int rk29sdk_wifi_set_carddetect(int val);
-int rockchip_wifi_init_module(void)
-{	
-	return esp_sdio_init();		
-}
-
-void rockchip_wifi_exit_module(void)
-{
-	esp_sdio_exit(); 
-		 
-}
 void sif_platform_rescan_card(unsigned insert)
 {
 }
@@ -68,8 +58,6 @@ void sif_platform_ack_interrupt(struct esp_pub *epub)
         sdmmc_ack_interrupt(func->card->host);
 }
 #endif //ESP_ACK_INTERRUPT
- EXPORT_SYMBOL(rockchip_wifi_init_module);
- EXPORT_SYMBOL(rockchip_wifi_exit_module);
 
 late_initcall(esp_sdio_init);
 module_exit(esp_sdio_exit);

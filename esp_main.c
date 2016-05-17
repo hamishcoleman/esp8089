@@ -34,7 +34,7 @@ MODULE_PARM_DESC(no_txampdu, "Disable tx ampdu.");
 module_param_named(no_rxampdu, modparam_no_rxampdu, int, 0444);
 MODULE_PARM_DESC(no_rxampdu, "Disable rx ampdu.");
 
-static char *modparam_eagle_path = "";
+static char *modparam_eagle_path = "/lib/firmware";
 module_param_named(eagle_path, modparam_eagle_path, charp, 0444);
 MODULE_PARM_DESC(eagle_path, "eagle path");
 
