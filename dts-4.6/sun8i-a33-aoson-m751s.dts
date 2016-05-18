@@ -91,7 +91,6 @@
 		regulator-name = "vcc-wifi";
 		vin0-supply = <&vcc_wifi_1>;
 		vin1-supply = <&vcc_wifi_2>;
-		regulator-always-on;
 	};
 };
 
@@ -101,7 +100,6 @@
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
 			regulator-name = "vcc-wifi-1";
-			regulator-always-on;
 		};
 
 		vcc_wifi_2: dldo2 {
@@ -116,7 +114,7 @@
 &mmc1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc1_pins_a>;
-	vmmc-supply = <&reg_vcc3v3>;
+	vmmc-supply = <&vcc_wifi_1>;
 	mmc-pwrseq = <&mmc1_pwrseq>;
 	bus-width = <4>;
 	//non-removable;
