@@ -263,11 +263,7 @@ int sip_parse_events(struct esp_sip *sip, u8 *buf)
         return 0;
 }
 
-#ifdef HAS_INIT_DATA
 #include "esp_init_data.h"
-#else
-#define ESP_INIT_NAME "esp_init_data.bin"
-#endif /* HAS_INIT_DATA */
 
 void sip_send_chip_init(struct esp_sip *sip)
 {

@@ -91,36 +91,14 @@ int request_init_conf(void)
 	int i;
 	char attr_name[CONF_ATTR_LEN];
 	char num_buf[CONF_VAL_LEN];
-#ifdef INIT_DATA_CONF
-	char filename[256];
-
-	if (mod_eagle_path_get() == NULL)
-        	sprintf(filename, "%s/%s", FWPATH, INIT_CONF_FILE);
-	else
-        	sprintf(filename, "%s/%s", mod_eagle_path_get(), INIT_CONF_FILE);
-
-	if ((ret=esp_readwrite_file(filename, NULL, NULL, 0)) < 0 || ret > MAX_BUF_LEN) {
-		esp_dbg(ESP_DBG_ERROR, "%s: file read length error, ret %d\n", __FUNCTION__, ret);
-		return ret;
-	} else {
-                length = ret;
-        }
-#endif /* INIT_DATA_CONF */
 	conf_buf = (u8 *)kmalloc(MAX_BUF_LEN, GFP_KERNEL);
 	if (conf_buf == NULL) {
 		esp_dbg(ESP_DBG_ERROR, "%s: failed kmalloc memory for read init_data_conf", __func__);
 		return -ENOMEM;
 	}
 
-#ifdef INIT_DATA_CONF
-	if ((ret=esp_readwrite_file(filename, conf_buf, NULL, length)) != length) {
-		esp_dbg(ESP_DBG_ERROR, "%s: file read error, ret %d request %d\n", __FUNCTION__, ret, length);
-		goto failed;
-	}
-#else
 	length = strlen(INIT_DATA_CONF_BUF);
 	strncpy(conf_buf, INIT_DATA_CONF_BUF, length); 
-#endif
 	conf_buf[length] = '\0';
 
 	flag = 0;
