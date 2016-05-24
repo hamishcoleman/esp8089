@@ -283,7 +283,6 @@ static void esp_op_remove_interface(struct ieee80211_hw *hw,
 
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 #define BEACON_TIM_SAVE_MAX 20
 u8 beacon_tim_saved[BEACON_TIM_SAVE_MAX];
 int beacon_tim_count;
@@ -403,8 +402,6 @@ static void init_beacon_timer(struct ieee80211_vif *vif)
 	evif->beacon_timer.function = drv_handle_beacon;
 	add_timer(&evif->beacon_timer);
 }
-#endif
-
 
 static int esp_op_config(struct ieee80211_hw *hw, u32 changed)
 {
