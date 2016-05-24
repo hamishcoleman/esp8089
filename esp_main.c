@@ -161,9 +161,9 @@ struct esp_fw_blk_hdr {
 	u32 data_len;
 } __packed;
 
-#define ESP_FW_NAME1 "eagle_fw1.bin"
-#define ESP_FW_NAME2 "eagle_fw2.bin"
-#define ESP_FW_NAME3 "eagle_fw3.bin"
+#define ESP_FW_NAME1 "eagle_fw_ate_config_v19.bin"
+#define ESP_FW_NAME2 "eagle_fw_first_init_v19.bin"
+#define ESP_FW_NAME3 "eagle_fw_second_init_v19.bin"
 
 #ifndef FPGA_DEBUG
 static int esp_download_fw(struct esp_pub *epub)
