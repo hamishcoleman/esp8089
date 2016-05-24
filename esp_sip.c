@@ -1685,7 +1685,6 @@ static int sip_parse_mac_rx_info(struct esp_sip *sip,
 			esp_add_wmm(skb);
 #endif
 
-#ifdef KERNEL_IV_WAR
 		/* some kernel e.g. 3.0.8 wrongly handles non-encrypted pkt like eapol */
 		if (ieee80211_is_data(wh->frame_control)) {
 			if (!ieee80211_has_protected(wh->frame_control)) {
@@ -1711,7 +1710,6 @@ static int sip_parse_mac_rx_info(struct esp_sip *sip,
 					    __func__);
 			}
 		}
-#endif				/* KERNEL_IV_WAR */
 	} while (0);
 
 	return 0;
