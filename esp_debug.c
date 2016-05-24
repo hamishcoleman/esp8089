@@ -14,7 +14,7 @@
 
 #include "esp_debug.h"
 
-#if defined(CONFIG_DEBUG_FS) && defined(DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_ESP8089_DEBUG_FS)
 
 static struct dentry *esp_debugfs_root = NULL;
 
