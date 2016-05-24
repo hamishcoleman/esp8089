@@ -580,11 +580,7 @@ static int esp_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		else
 			atomic_dec(&epub->wl.gtk_cnt);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
 		if((key->cipher == WLAN_CIPHER_SUITE_WEP40 || key->cipher == WLAN_CIPHER_SUITE_WEP104))
-#else
-        if((key->alg == ALG_WEP))
-#endif
 		{
 			if(isvalid)
 				atomic_inc(&epub->wl.ptk_cnt);
@@ -596,11 +592,7 @@ static int esp_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
         ret = sip_send_setkey(epub, ifidx, peer_addr, key, isvalid);
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 35))
 	if((key->cipher == WLAN_CIPHER_SUITE_TKIP || key->cipher == WLAN_CIPHER_SUITE_TKIP))
-#else
-	if((key->alg == ALG_TKIP))
-#endif
 	{
 		if(ret == 0)
 			atomic_set(&epub->wl.tkip_key_set, 1);
@@ -610,15 +602,6 @@ static int esp_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
         return ret;
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 34))
-static void esp_op_update_tkip_key(struct ieee80211_hw *hw,
-                                   struct ieee80211_key_conf *conf, const u8 *address,
-                                   u32 iv32, u16 *phase1key)
-{
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
-
-}
-#else
 static void esp_op_update_tkip_key(struct ieee80211_hw *hw,
                                    struct ieee80211_vif *vif,
                                    struct ieee80211_key_conf *conf,
@@ -628,8 +611,6 @@ static void esp_op_update_tkip_key(struct ieee80211_hw *hw,
         ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
 
 }
-#endif /* KERNEL_35 NEW_KERNEL*/
-
 
 void hw_scan_done(struct esp_pub *epub, bool aborted)
 {
@@ -637,11 +618,7 @@ void hw_scan_done(struct esp_pub *epub, bool aborted)
 
         ESSERT(epub->wl.scan_req != NULL);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
         ieee80211_scan_completed(epub->hw, aborted);
-#else
-        ieee80211_scan_completed(epub->hw);
-#endif
         if (test_and_clear_bit(ESP_WL_FLAG_STOP_TXQ, &epub->wl.flags)) {
                 sip_trigger_txq_process(epub->sip);
         }
@@ -665,38 +642,8 @@ static void hw_scan_timeout_report(struct work_struct *work)
                 epub->wl.scan_req = NULL;
         }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
         ieee80211_scan_completed(epub->hw, aborted);
-#else
-        ieee80211_scan_completed(epub->hw);
-#endif  
 }
-
-#if 0
-static void esp_op_sw_scan_start(struct ieee80211_hw *hw)
-{}
-
-static void esp_op_sw_scan_complete(struct ieee80211_hw *hw)
-{
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
-}
-#endif
-
-#if 0
-static int esp_op_get_stats(struct ieee80211_hw *hw,
-                            struct ieee80211_low_level_stats *stats)
-{
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
-
-        return 0;
-}
-
-static void esp_op_get_tkip_seq(struct ieee80211_hw *hw, u8 hw_key_idx,
-                                u32 *iv32, u16 *iv16)
-{
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
-}
-#endif
 
 static int esp_op_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
 {
@@ -705,42 +652,22 @@ static int esp_op_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
         return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 static int esp_node_attach(struct ieee80211_hw *hw, u8 ifidx, struct ieee80211_sta *sta)
-#else
-static int esp_node_attach(struct ieee80211_hw *hw, u8 ifidx, const u8 *addr)
-#endif
 {
         struct esp_pub *epub = (struct esp_pub *)hw->priv;
         struct esp_node *node;
         u8 tidno;
         struct esp_tx_tid *tid;
 	    int i;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-        struct sta_info *info = sta_info_get(container_of(hw,struct ieee80211_local,hw),(u8 *)addr);
-        struct ieee80211_ht_info *ht_info = &info->ht_info;
-#endif
 
 	spin_lock_bh(&epub->tx_ampdu_lock);
 
 	if(hweight32(epub->enodes_maps[ifidx]) < ESP_PUB_MAX_STA && (i = ffz(epub->enodes_map)) < ESP_PUB_MAX_STA + 1){
 		epub->enodes_map |= (1 << i);
 		epub->enodes_maps[ifidx] |= (1 << i);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 		node = (struct esp_node *)sta->drv_priv;
 		epub->enodes[i] = node;
 		node->sta = sta;
-#else
-		node = &epub->nodes[i];
-		epub->enodes[i] = node;
-		memcpy(node->addr, addr, ETH_ALEN);
-		memcpy(&node->aid, &info->aid, sizeof(node->aid)); 
-		memcpy(node->supp_rates, info->supp_rates, sizeof(node->supp_rates));
-		memcpy(&node->ht_info.cap, &ht_info->cap, sizeof(node->ht_info.cap));
-		memcpy(&node->ht_info.ht_supported, &ht_info->ht_supported, sizeof(node->ht_info.ht_supported));
-		memcpy(&node->ht_info.ampdu_factor, &ht_info->ampdu_factor, sizeof(node->ht_info.ampdu_factor));
-		memcpy(&node->ht_info.ampdu_density, &ht_info->ampdu_density, sizeof(node->ht_info.ampdu_density));
-#endif
 		node->ifidx = ifidx;
 		node->index = i;
 
@@ -759,11 +686,7 @@ static int esp_node_attach(struct ieee80211_hw *hw, u8 ifidx, const u8 *addr)
 	return i;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 static int esp_node_detach(struct ieee80211_hw *hw, u8 ifidx, struct ieee80211_sta *sta)
-#else
-static int esp_node_detach(struct ieee80211_hw *hw, u8 ifidx, const u8 *addr)
-#endif
 {
     struct esp_pub *epub = (struct esp_pub *)hw->priv;
 	u32 map;
@@ -774,12 +697,8 @@ static int esp_node_detach(struct ieee80211_hw *hw, u8 ifidx, const u8 *addr)
 	map = epub->enodes_maps[ifidx];
 	while(map != 0){
 		i = ffs(map) - 1;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 		if(epub->enodes[i]->sta == sta){
 			epub->enodes[i]->sta = NULL;
-#else
-		if(memcmp(epub->enodes[i]->addr, addr, ETH_ALEN) == 0){
-#endif
 			node = epub->enodes[i];
 			epub->enodes[i] = NULL;
 			epub->enodes_map &= ~(1 << i);
@@ -811,11 +730,7 @@ struct esp_node * esp_get_node_by_addr(struct esp_pub * epub, const u8 *addr)
 			return NULL;
 		}
 		map &= ~(1 << i);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 		if(memcmp(epub->enodes[i]->sta->addr, addr, ETH_ALEN) == 0)
-#else
-		if(memcmp(epub->enodes[i]->addr, addr, ETH_ALEN) == 0)
-#endif
 		{
 			node = epub->enodes[i];
 			break;
@@ -881,11 +796,7 @@ int esp_get_exist_rxampdu(struct esp_pub * epub, const u8 *addr, u8 tid)
 		}
 		map &= ~ BIT(i);
 		if(epub->rxampdu_tid[i] == tid && 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 			memcmp(epub->rxampdu_node[i]->sta->addr, addr, ETH_ALEN) == 0
-#else
-			memcmp(epub->rxampdu_node[i]->addr, addr, ETH_ALEN) == 0
-#endif
 		){
 			index = i;
 			break;
@@ -898,113 +809,47 @@ int esp_get_exist_rxampdu(struct esp_pub * epub, const u8 *addr, u8 tid)
 
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 static int esp_op_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif, struct ieee80211_sta *sta)
-#else
-static int esp_op_sta_add(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *addr)
-#endif
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 	struct esp_pub *epub = (struct esp_pub *)hw->priv;
-#endif
 	struct esp_vif *evif = (struct esp_vif *)vif->drv_priv;
 	int index;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter, addr %pM\n", __func__, addr);
-   	index = esp_node_attach(hw, evif->index, addr);
-
-#else
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 34))
-	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter, sta addr %pM\n", __func__, sta->addr);
-#else 
 	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter, vif addr %pM, sta addr %pM\n", __func__, vif->addr, sta->addr);
-#endif
 	index = esp_node_attach(hw, evif->index, sta);
-#endif
 
 	if(index < 0)
 		return -1;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 	sip_send_set_sta(epub, evif->index, 1, sta, vif, (u8)index);
-#else
-	//node = esp_get_node_by_addr(epub, addr);
-	//sip_send_set_sta(epub, evif->index, 1, node, vif, (u8)index);
-#endif
     return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 static int esp_op_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif, struct ieee80211_sta *sta)
-#else
-static int esp_op_sta_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif, const u8 *addr)
-#endif
 {	
 	struct esp_pub *epub = (struct esp_pub *)hw->priv;
 	struct esp_vif *evif = (struct esp_vif *)vif->drv_priv;
 	int index;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-	struct esp_node *node;
-	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter, addr %pM\n", __func__, addr);
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 34))
-	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter, sta addr %pM\n", __func__, sta->addr);
-#else 
 	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter, vif addr %pM, sta addr %pM\n", __func__, vif->addr, sta->addr);
-#endif
 	
     	//remove a connect in target
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 	index = esp_node_detach(hw, evif->index, sta);
 	sip_send_set_sta(epub, evif->index, 0, sta, vif, (u8)index);
-#else
-	node = esp_get_node_by_addr(epub, addr);
-	index = esp_node_detach(hw, evif->index, addr);
-	sip_send_set_sta(epub, evif->index, 0, node, vif, node->index);
-#endif
 
 	return 0;
 }
 
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 static void esp_op_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif, enum sta_notify_cmd cmd, struct ieee80211_sta *sta)
-#else
-static void esp_op_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif, enum sta_notify_cmd cmd, const u8 *addr)
-#endif
 {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-        struct esp_pub *epub = (struct esp_pub *)hw->priv;
-#endif
 
         ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
 
         switch (cmd) {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39))
-        case STA_NOTIFY_ADD:
-            ESP_IEEE80211_DBG(ESP_DBG_ERROR, "%s cmd add\n", __func__);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
-            esp_op_sta_add(hw, vif, sta);
-#else
-            memcpy(epub->wl.bssid, addr, ETH_ALEN);
-            esp_op_sta_add(hw, vif, addr);
-#endif
-            break;
-
-        case STA_NOTIFY_REMOVE:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
-            esp_op_sta_remove(hw, vif, sta);
-#else
-            esp_op_sta_remove(hw, vif, addr);
-            memset(epub->wl.bssid, 0, ETH_ALEN);
-#endif
-            break;
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
         case STA_NOTIFY_SLEEP:
                 break;
 
         case STA_NOTIFY_AWAKE:
                 break;
-#endif /* NEW_KERNEL */
 
         default:
                 break;
@@ -1012,65 +857,35 @@ static void esp_op_sta_notify(struct ieee80211_hw *hw, struct ieee80211_vif *vif
 }
 
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
 static int esp_op_conf_tx(struct ieee80211_hw *hw, 
 			  struct ieee80211_vif *vif,
 			  u16 queue,
                           const struct ieee80211_tx_queue_params *params)
 
-#else
-static int esp_op_conf_tx(struct ieee80211_hw *hw, u16 queue,
-                          const struct ieee80211_tx_queue_params *params)
-#endif
 {
         struct esp_pub *epub = (struct esp_pub *)hw->priv;
         ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
         return sip_send_wmm_params(epub, queue, params);
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35))
-static int esp_op_get_tx_stats(struct ieee80211_hw *hw,
-                               struct ieee80211_tx_queue_stats *stats)
-{
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
-
-        return 0;
-}
-#endif /* !NEW_KERNEL && !KERNEL_35*/
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
 static u64 esp_op_get_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
-#else
-static u64 esp_op_get_tsf(struct ieee80211_hw *hw)
-#endif
 {
         ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
 
         return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
 static void esp_op_set_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif, u64 tsf)
-#else
-static void esp_op_set_tsf(struct ieee80211_hw *hw, u64 tsf)
-#endif
 {
         ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
 }
-#endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
 static void esp_op_reset_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
-#else
-static void esp_op_reset_tsf(struct ieee80211_hw *hw)
-#endif
 {
         ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
 
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 31))
 static void esp_op_rfkill_poll(struct ieee80211_hw *hw)
 {
         struct esp_pub *epub = (struct esp_pub *)hw->priv;
@@ -1080,17 +895,11 @@ static void esp_op_rfkill_poll(struct ieee80211_hw *hw)
         wiphy_rfkill_set_hw_state(hw->wiphy,
                                   test_bit(ESP_WL_FLAG_RFKILL, &epub->wl.flags) ? true : false);
 }
-#endif
 
 #ifdef HW_SCAN
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35))
-static int esp_op_hw_scan(struct ieee80211_hw *hw,
-                          struct cfg80211_scan_request *req)
-#else
 static int esp_op_hw_scan(struct ieee80211_hw *hw,
                           struct ieee80211_vif *vif,
                           struct cfg80211_scan_request *req)
-#endif /* NEW_KERNEL && KERNEL_35 */
 {
         struct esp_pub *epub = (struct esp_pub *)hw->priv;
         int i, ret;
@@ -1181,7 +990,6 @@ static int esp_op_hw_scan(struct ieee80211_hw *hw,
         return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 38))
 static int esp_op_remain_on_channel(struct ieee80211_hw *hw,
                                     struct ieee80211_channel *chan,
                                     enum nl80211_channel_type channel_type,
@@ -1203,7 +1011,6 @@ static int esp_op_cancel_remain_on_channel(struct ieee80211_hw *hw)
       sip_send_roc(epub, 0, 0);
      return 0;
 }
-#endif /* > 2.6.38 */
 #endif
 
 void esp_rocdone_process(struct ieee80211_hw *hw, struct sip_evt_roc *report)
