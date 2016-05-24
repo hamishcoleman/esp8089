@@ -16,11 +16,6 @@
 #include <linux/version.h>
 #include "sip2_common.h"
 
-// to support kernel < 2.6.28 there's no ieee80211_sta
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-#include <net/wireless.h>
-#endif
-
 enum esp_sdio_state{
 	ESP_SDIO_STATE_FIRST_INIT,
 	ESP_SDIO_STATE_FIRST_NORMAL_EXIT,
@@ -47,14 +42,7 @@ struct esp_tx_tid {
 #define WME_NUM_TID 16
 struct esp_node {
         struct esp_tx_tid tid[WME_NUM_TID];
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
         struct ieee80211_sta *sta;
-#else
-	u8 addr[ETH_ALEN];
-	u16 aid;
-	u64 supp_rates[IEEE80211_NUM_BANDS];
-	struct ieee80211_ht_info ht_info;
-#endif
 	u8 ifidx;
 	u8 index;
 };
@@ -184,9 +172,6 @@ struct esp_pub {
 	u32 enodes_map;
 	u8 rxampdu_map;
 	u32 enodes_maps[ESP_PUB_MAX_VIF];
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-        struct esp_node nodes[ESP_PUB_MAX_STA + 1];
-#endif
         struct esp_node * enodes[ESP_PUB_MAX_STA + 1];
 	struct esp_node * rxampdu_node[ESP_PUB_MAX_RXAMPDU];
 	u8 rxampdu_tid[ESP_PUB_MAX_RXAMPDU];

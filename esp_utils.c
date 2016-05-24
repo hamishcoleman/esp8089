@@ -108,7 +108,6 @@ bool esp_wmac_rxsec_error(u8 error)
         return (error >= RX_SECOV_ERR && error <= RX_SECFIFO_TIMEOUT) || (error >= RX_WEPICV_ERR && error <= RX_WAPIMIC_ERR);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
 int esp_cipher2alg(int cipher)
 {
         if (cipher == WLAN_CIPHER_SUITE_TKIP)
@@ -127,7 +126,6 @@ int esp_cipher2alg(int cipher)
 
         return -1;
 }
-#endif /* NEW_KERNEL */
 
 #ifdef RX_CHECKSUM_TEST
 atomic_t g_iv_len;
@@ -214,11 +212,7 @@ bool esp_is_ip_pkt(struct sk_buff *skb)
 		
 		hdrlen = ieee80211_hdrlen(hdr->frame_control);
 		if(ieee80211_has_protected(hdr->frame_control))
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 27))
                 	hdrlen += IEEE80211_SKB_CB(skb)->control.hw_key->iv_len;
-#else
-                	hdrlen += IEEE80211_SKB_CB(skb)->control.iv_len;
-#endif
 #ifdef RX_CHECKSUM_TEST
 		atomic_set(&g_iv_len, IEEE80211_SKB_CB(skb)->control.hw_key->iv_len);
 #endif

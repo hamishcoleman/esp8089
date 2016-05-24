@@ -28,9 +28,6 @@
 #include "slc_host_register.h"
 #include "esp_wmac.h"
 #include "esp_utils.h"
-#ifdef TEST_MODE
-#include "testmode.h"
-#endif
 
 #ifdef USE_EXT_GPIO
 #include "esp_ext.h"
@@ -137,10 +134,6 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb);
 #ifdef FAST_TX_STATUS
 static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struct ieee80211_tx_info* tx_info, bool success);
 #endif /* FAST_TX_STATUS */
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35))
-static void sip_check_skb_alignment(struct sk_buff *skb);
-#endif /* NEW_KERNEL */
 
 #ifdef FPGA_TXDATA
 int sip_send_tx_data(struct esp_sip *sip);
@@ -279,7 +272,7 @@ void sip_trigger_txq_process(struct esp_sip *sip)
                 /* try to send out pkt already in sip queue once we have credits */
                 esp_sip_dbg(ESP_DBG_TRACE, "%s resume sip txq \n", __func__);
 
-#if !defined(FPGA_TXDATA) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32))
+#if !defined(FPGA_TXDATA)
                 if(sif_get_ate_config() == 0){
                         ieee80211_queue_work(sip->epub->hw, &sip->epub->tx_work);
                 } else {
@@ -399,9 +392,6 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 			if(rskb == NULL)
 				goto _move_on;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35))
-			sip_check_skb_alignment(rskb);
-#endif /* !NEW_KERNEL */
 			if (likely(atomic_read(&sip->epub->wl.off) == 0)) {
 #ifndef RX_SENDUP_SYNC
 				skb_queue_tail(&sip->epub->rxq, rskb);
@@ -411,12 +401,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 				esp_rx_checksum_test(rskb);
 #endif
 				local_bh_disable();
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32))
 				ieee80211_rx(sip->epub->hw, rskb);
-#else
-                //simulate IEEE80211_SKB_RXCB in 2.6.32 
-                ieee80211_rx(sip->epub->hw, rskb ,(struct ieee80211_rx_status *)rskb->cb);
-#endif
 				local_bh_enable();
 #endif /* RX_SENDUP_SYNC */
 			} else {
@@ -486,12 +471,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 						esp_rx_checksum_test(rskb);
 #endif
 						local_bh_disable();
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32))
 						ieee80211_rx(sip->epub->hw, rskb);
-#else
-                //simulate IEEE80211_SKB_RXCB in 2.6.32 
-						ieee80211_rx(sip->epub->hw, rskb ,(struct ieee80211_rx_status *)rskb->cb);
-#endif
 						local_bh_enable();
 #endif /* RX_SENDUP_SYNC */
 
@@ -926,9 +906,6 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
 
                 /* make room for encrypted pkt */
                 if (itx_info->control.hw_key) {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39))
-                        shdr->d_enc_flag= itx_info->control.hw_key->alg+1;
-#else
                         int alg = esp_cipher2alg(itx_info->control.hw_key->cipher);
                         if (unlikely(alg == -1)) {
 #ifndef FAST_TX_STATUS
@@ -942,7 +919,6 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
                                 shdr->d_enc_flag = alg + 1;
                         }
 
-#endif /* NEW_KERNEL */
                          shdr->d_hw_kid =  itx_info->control.hw_key->hw_key_idx | (evif->index<<7);
                 } else {
                         shdr->d_enc_flag=0;
@@ -950,28 +926,15 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
                 }
 
                 /* update sip tx info */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
                 node = esp_get_node_by_addr(sip->epub, wh->addr1);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
-                if(itx_info->control.sta == NULL){
-                        node = NULL;
-                } else {
-                        node = esp_get_node_by_addr(sip->epub, itx_info->control.sta->addr);
-                }
-#else
-		
-                node = esp_get_node_by_addr(sip->epub, wh->addr1);
-#endif
                 if(node != NULL)
                         sta_index = node->index;
                 else
                         sta_index = ESP_PUB_MAX_STA + 1;
                 SIP_HDR_SET_IFIDX(shdr->fc[0], evif->index << 3 | sta_index);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
                 shdr->d_p2p = itx_info->control.vif->p2p;
                 if(evif->index == 1)
                         shdr->d_p2p = 1;
-#endif
                 shdr->d_ac = skb_get_queue_mapping(skb);
                 shdr->d_tid = skb->priority & IEEE80211_QOS_CTL_TAG1D_MASK;
                 wh = (struct ieee80211_hdr *)skb->data;
@@ -1188,36 +1151,22 @@ static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struc
                 else
                         tx_info->flags &= ~IEEE80211_TX_STAT_ACK;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
                 /* manipulate rate status... */
                 tx_info->status.rates[0].idx = 11;
                 tx_info->status.rates[0].count = 1;
                 tx_info->status.rates[0].flags = 0;
                 tx_info->status.rates[1].idx = -1;
-#else
-                tx_info->status.retry_count = 1;
-                tx_info->status.excessive_retries = false;
-#endif
 
         } else {
                 tx_info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_STAT_ACK;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39))
-                tx_info->status.ampdu_ack_map = 1;
-#else
                 tx_info->status.ampdu_len = 1;
-#endif
                 tx_info->status.ampdu_ack_len = 1;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
                 /* manipulate rate status... */
                 tx_info->status.rates[0].idx = 7;
                 tx_info->status.rates[0].count = 1;
                 tx_info->status.rates[0].flags = IEEE80211_TX_RC_MCS | IEEE80211_TX_RC_SHORT_GI;
                 tx_info->status.rates[1].idx = -1;
-#else
-                tx_info->status.retry_count = 1;
-                tx_info->status.excessive_retries = false;
-#endif
 
         }
 
@@ -1225,13 +1174,7 @@ static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struc
                 esp_sip_dbg(ESP_DBG_TRACE, "%s ampdu status! \n", __func__);
 
         if (!mod_support_no_txampdu() &&
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
                 cfg80211_get_chandef_type(&sip->epub->hw->conf.chandef) != NL80211_CHAN_NO_HT
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
-                sip->epub->hw->conf.channel_type != NL80211_CHAN_NO_HT
-#else
-                !(sip->epub->hw->conf.flags&IEEE80211_CONF_SUPPORT_HT_MODE)
-#endif
                 ) {
                 struct ieee80211_tx_info * tx_info = IEEE80211_SKB_CB(skb);
                 struct ieee80211_hdr * wh = (struct ieee80211_hdr *)skb->data;
@@ -1240,7 +1183,6 @@ static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struc
                                 u8 tidno = ieee80211_get_qos_ctl(wh)[0] & IEEE80211_QOS_CTL_TID_MASK;
                                 struct esp_node * node;
                                 struct esp_tx_tid *tid;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)) 
                                 struct ieee80211_sta *sta;
 
 				node = esp_get_node_by_addr(sip->epub, wh->addr1);
@@ -1249,27 +1191,6 @@ static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struc
                                 if(node->sta == NULL)
                                         goto _exit;
 				sta = node->sta;
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
-                                struct ieee80211_sta *sta;
-                                sta = tx_info->control.sta;
-                                if(sta == NULL)
-                                        goto _exit;
-                                node = (struct esp_node *)sta->drv_priv;
-				if(node == NULL){
-                                	ESSERT(0);
-					goto _exit;
-				}
-                                if(node->sta == NULL)
-                                        goto _exit;
-				if(!sta->ht_cap.ht_supported)
-					goto _exit;
-#else
-                                node = esp_get_node_by_addr(sip->epub, wh->addr1);
-                                if(node == NULL)
-                                        goto _exit;
-				if(!node->ht_info.ht_supported)
-					goto _exit;
-#endif
                                 tid = &node->tid[tidno];
                                 spin_lock_bh(&sip->epub->tx_ampdu_lock);
                                 //start session
@@ -1283,15 +1204,7 @@ static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struc
                                         tid->state = ESP_TID_STATE_TRIGGER;
                                         esp_sip_dbg(ESP_DBG_ERROR, "start tx ba session,addr:%pM,tid:%u\n", wh->addr1, tidno);
                                         spin_unlock_bh(&sip->epub->tx_ampdu_lock);
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 28))
-                                        ieee80211_start_tx_ba_session(sip->epub->hw, wh->addr1, tidno);
-#elif (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 32))
-                                        ieee80211_start_tx_ba_session(sip->epub->hw, sta->addr, tidno);
-#elif (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 37))
-                                        ieee80211_start_tx_ba_session(sta, tidno);
-#else
                                         ieee80211_start_tx_ba_session(sta, tidno, 0);
-#endif
                                 } else {
 					if(tid->state == ESP_TID_STATE_INIT)
 						tid->cnt++;
@@ -1443,29 +1356,6 @@ static void sip_after_write_pkts(struct esp_sip *sip)
 #endif /* FAST_TX_STATUS */
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35))
-/*
- * old mac80211 (2.6.32.x) needs payload is 4 byte aligned, thus we need this hack.
- * TBD: However, the latest mac80211 stack does not need this. we may
- * need to check kernel version here...
- */
-static void sip_check_skb_alignment(struct sk_buff *skb)
-{
-        struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-        int hdrlen;
-
-        hdrlen = ieee80211_hdrlen(hdr->frame_control);
-
-        if (unlikely(((unsigned long)(skb->data + hdrlen)) & 3)) {
-
-                esp_sip_dbg(ESP_DBG_TRACE, "%s adjust skb data postion \n", __func__);
-                skb_push(skb, 2);
-                memmove(skb->data, skb->data+2, skb->len-2);
-                skb_trim(skb, skb->len-2);
-        }
-}
-#endif /* !NEW_KERNEL */
-
 #ifndef NO_WMM_DUMMY
 static struct esp_80211_wmm_param_element esp_wmm_param = {
 	.oui = {0x00, 0x50, 0xf2},
@@ -1568,18 +1458,10 @@ static int sip_parse_mac_rx_info(struct esp_sip *sip, struct esp_mac_rx_ctrl * m
         struct ieee80211_rx_status *rx_status = NULL;
 	struct ieee80211_hdr *hdr;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32))
         rx_status = IEEE80211_SKB_RXCB(skb);
-#else
-        rx_status = (struct ieee80211_rx_status *)skb->cb;
-#endif
         rx_status->freq = esp_ieee2mhz(mac_ctrl->channel);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39))
         rx_status->signal = mac_ctrl->rssi + mac_ctrl->noise_floor;  /* snr actually, need to offset noise floor e.g. -85 */
-#else
-        rx_status->signal = mac_ctrl->rssi;  /* snr actually, need to offset noise floor e.g. -85 */
-#endif /* NEW_KERNEL */
 
 	hdr = (struct ieee80211_hdr *)skb->data;
 	if (mac_ctrl->damatch0 == 1 && mac_ctrl->bssidmatch0 == 1        /*match bssid and da, but beacon package contain other bssid*/
@@ -1596,29 +1478,14 @@ static int sip_parse_mac_rx_info(struct esp_sip *sip, struct esp_mac_rx_ctrl * m
 		}
 	}
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 35))
-#define ESP_RSSI_MIN_RSSI (-90)
-#define ESP_RSSI_MAX_RSSI (-45)
-        rx_status->noise = 0;  /* TBD */
-        rx_status->qual = (mac_ctrl->rssi - ESP_RSSI_MIN_RSSI)* 100/(ESP_RSSI_MAX_RSSI - ESP_RSSI_MIN_RSSI);
-        rx_status->qual = min(rx_status->qual, 100);
-        rx_status->qual = max(rx_status->qual, 0);
-#undef ESP_RSSI_MAX_RSSI
-#undef ESP_RSSI_MIN_RSSI
-#endif /* !NEW_KERNEL && KERNEL_35*/
         rx_status->antenna = 0;  /* one antenna for now */
         rx_status->band = IEEE80211_BAND_2GHZ;
         rx_status->flag = RX_FLAG_DECRYPTED | RX_FLAG_MMIC_STRIPPED;
         if (mac_ctrl->sig_mode) {
-            // 2.6.27 has RX_FLAG_RADIOTAP in enum mac80211_rx_flags in include/net/mac80211.h
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))                
                 rx_status->flag |= RX_FLAG_HT;
                 rx_status->rate_idx = mac_ctrl->MCS;
                 if(mac_ctrl->SGI)
                         rx_status->flag |= RX_FLAG_SHORT_GI;
-#else
-                rx_status->rate_idx = esp_wmac_rate2idx(0xc);//ESP_RATE_54
-#endif
         } else {
                 rx_status->rate_idx = esp_wmac_rate2idx(mac_ctrl->rate);
         }
@@ -1717,19 +1584,11 @@ static struct sk_buff * sip_parse_data_rx_info(struct esp_sip *sip, struct sk_bu
                 pkt_len  = buf_len - 3 + ((pkt_len_enc - 1) & 0x3);
         esp_dbg(ESP_DBG_TRACE, "%s pkt_len %u, pkt_len_enc %u!, delta %d \n", __func__, pkt_len, pkt_len_enc, pkt_len_enc - pkt_len);
         do {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39))
-#ifndef NO_WMM_DUMMY
-                rskb = __dev_alloc_skb(pkt_len_enc + 2 + sizeof(esp_wmm_param) + 2, GFP_ATOMIC);
-#else
-                rskb = __dev_alloc_skb(pkt_len_enc + 2, GFP_ATOMIC);
-#endif /* NO_WMM_DUMMY */
-#else
 #ifndef NO_WMM_DUMMY
                 rskb = __dev_alloc_skb(pkt_len_enc + sizeof(esp_wmm_param) + 2, GFP_ATOMIC);
 #else
                 rskb = __dev_alloc_skb(pkt_len_enc, GFP_ATOMIC);
 #endif /* NO_WMM_DUMMY */
-#endif/* NEW_KERNEL */
                 if (unlikely(rskb == NULL)) {
                         esp_sip_dbg(ESP_DBG_ERROR, "%s no mem for rskb\n", __func__);
                         return NULL;
@@ -1738,18 +1597,6 @@ static struct sk_buff * sip_parse_data_rx_info(struct esp_sip *sip, struct sk_bu
         } while(0);
 
         do {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39))
-                do {
-                        struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-                        int hdrlen;
-
-                        hdrlen = ieee80211_hdrlen(hdr->frame_control);
-                        if (unlikely(((unsigned long)(rskb->data + hdrlen)) & 3)) {
-                                skb_put(rskb, 2);
-                                skb_pull(rskb, 2);
-                        }
-                } while(0);
-#endif /* < KERNEL_VERSION(2, 6, 39) */
                 memcpy(rskb->data, skb->data, pkt_len);
                 if (pkt_len_enc > pkt_len) {
                         memset(rskb->data + pkt_len, 0, pkt_len_enc - pkt_len);
@@ -2287,15 +2134,11 @@ sip_cmd_enqueue(struct esp_sip *sip, struct sk_buff *skb, int prior)
 	else
         	skb_queue_tail(&sip->epub->txq, skb);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32)
         if(sif_get_ate_config() == 0){
             ieee80211_queue_work(sip->epub->hw, &sip->epub->tx_work);
         } else {
             queue_work(sip->epub->esp_wkq, &sip->epub->tx_work);
         } 
-#else       
-        queue_work(sip->epub->esp_wkq, &sip->epub->tx_work);
-#endif
         return 0;
 }
 

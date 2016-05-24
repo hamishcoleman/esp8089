@@ -6,7 +6,6 @@
  *    - sync/async DMA/PIO read/write
  *
  */
-#ifdef ESP_USE_SDIO
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/core.h>
@@ -666,14 +665,6 @@ static void esp_sdio_remove(struct sdio_func *func)
 			sif_disable_irq(sctrl->epub);
 		}
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 3, 0))
-                esdio_power_off(sctrl);
-                esp_dbg(ESP_DBG_TRACE, "%s power off \n", __func__);
-#endif /* kernel < 3.3.0 */
-
-#ifdef TEST_MODE
-                test_exit_netlink();
-#endif /* TEST_MODE */
 		if(sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT){
                 	esp_pub_dealloc_mac80211(sctrl->epub);
                 	esp_dbg(ESP_DBG_TRACE, "%s dealloc mac80211 \n", __func__);
@@ -698,22 +689,13 @@ MODULE_DEVICE_TABLE(sdio, esp_sdio_devices);
 
 static int esp_sdio_suspend(struct device *dev)
 {
-    //#define dev_to_sdio_func(d)     container_of(d, struct sdio_func, dev)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32))
-    struct sdio_func *func = dev_to_sdio_func(dev);
-#else
-    struct sdio_func *func = container_of(dev, struct sdio_func, dev);
-#endif
+	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct esp_sdio_ctrl *sctrl = sdio_get_drvdata(func);
 	struct esp_pub *epub = sctrl->epub;	
 
         printk("%s", __func__);
-#if 0
-	sip_send_suspend_config(epub, 1);
-#endif
 	atomic_set(&epub->ps.state, ESP_PM_ON);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 34))
     do{
         u32 sdio_flags = 0;
         int ret = 0;
@@ -729,7 +711,6 @@ static int esp_sdio_suspend(struct device *dev)
                 printk("%s error while trying to keep power\n", __func__);
         }
     }while(0);
-#endif
 
 
         return 0;
@@ -743,17 +724,10 @@ static int esp_sdio_resume(struct device *dev)
         return 0;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
 static const struct dev_pm_ops esp_sdio_pm_ops = {
         .suspend= esp_sdio_suspend,
         .resume= esp_sdio_resume,
 };
-#else
-static struct pm_ops esp_sdio_pm_ops = {
-        .suspend= esp_sdio_suspend,
-        .resume= esp_sdio_resume,
-};
-#endif
 
 static struct sdio_driver esp_sdio_driver = {
                 .name = "eagle_sdio",
@@ -908,4 +882,3 @@ static void  /*__exit*/ esp_sdio_exit(void)
 MODULE_AUTHOR("Espressif System");
 MODULE_DESCRIPTION("Driver for SDIO interconnected eagle low-power WLAN devices");
 MODULE_LICENSE("GPL");
-#endif /* ESP_USE_SDIO */

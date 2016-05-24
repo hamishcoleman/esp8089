@@ -24,11 +24,7 @@ int sip_send_ampdu_action(struct esp_pub *epub, u8 action_num, const u8 * addr, 
 
 int sip_send_roc(struct esp_pub *epub, u16 center_freq, u16 duration);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
 int sip_send_set_sta(struct esp_pub *epub, u8 ifidx, u8 set, struct ieee80211_sta *sta, struct ieee80211_vif *vif, u8 index);
-#else
-int sip_send_set_sta(struct esp_pub *epub, u8 ifidx, u8 set, struct esp_node *node,  struct ieee80211_vif *vif, u8 index);
-#endif
 
 int sip_send_suspend_config(struct esp_pub *epub, u8 suspend);
 
