@@ -1476,31 +1476,15 @@ esp_pub_init_mac80211(struct esp_pub *epub)
         epub->wl.sbands[IEEE80211_BAND_2GHZ].n_channels = ARRAY_SIZE(esp_channels_2ghz);
         epub->wl.sbands[IEEE80211_BAND_2GHZ].n_bitrates = ARRAY_SIZE(esp_rates_2ghz);
         /*add to support 11n*/
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
         epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ht_supported = true;
         epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.cap = 0x116C;//IEEE80211_HT_CAP_RX_STBC; //IEEE80211_HT_CAP_SGI_20;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 32))
         epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ampdu_factor = IEEE80211_HT_MAX_AMPDU_16K;
         epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ampdu_density = IEEE80211_HT_MPDU_DENSITY_NONE;
-#else
-        epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ampdu_factor = 1;//IEEE80211_HT_MAX_AMPDU_16K;
-        epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ampdu_density = 0;//IEEE80211_HT_MPDU_DENSITY_NONE;
-#endif
         memset(&epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs, 0,
                sizeof(epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs));
         epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs.rx_mask[0] = 0xff;
         //epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs.rx_highest = 7;
         //epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED;
-#else
-        epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_info.ht_supported = true;
-        epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_info.cap = 0x116C;//IEEE80211_HT_CAP_RX_STBC; //IEEE80211_HT_CAP_SGI_20;
-        epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_info.ampdu_factor = 1;//IEEE80211_HT_MAX_AMPDU_16K;
-        epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_info.ampdu_density = 0;//IEEE80211_HT_MPDU_DENSITY_NONE;
-        memset(&epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_info.supp_mcs_set, 0,
-               sizeof(epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_info.supp_mcs_set));
-        epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_info.supp_mcs_set[0] = 0xff;
-#endif
-
 
         /* BAND_5GHZ TBD */
 
@@ -1508,26 +1492,16 @@ esp_pub_init_mac80211(struct esp_pub *epub)
                 &epub->wl.sbands[IEEE80211_BAND_2GHZ];
         /* BAND_5GHZ TBD */
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 31))
         /*no fragment*/
         hw->wiphy->frag_threshold = IEEE80211_MAX_FRAG_THRESHOLD;
-#endif
 
         /* handle AC queue in f/w */
         hw->queues = 4;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 30))
         hw->max_rates = 4;
-#else
-        hw->max_altrates = 4;
-#endif
-#endif
         //hw->wiphy->reg_notifier = esp_reg_notify;
 
         hw->vif_data_size = sizeof(struct esp_vif);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 28))
         hw->sta_data_size = sizeof(struct esp_node);
-#endif
 
         //hw->max_rx_aggregation_subframes = 8;
 }
@@ -1570,7 +1544,6 @@ esp_register_mac80211(struct esp_pub *epub)
                 ESP_IEEE80211_DBG(ESP_DBG_ERROR, "unable to register mac80211 hw: %d\n", ret);
                 return ret;
         } else {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
 #ifdef MAC80211_NO_CHANGE
         	rtnl_lock();
 		if (epub->hw->wiphy->interface_modes &
@@ -1583,7 +1556,6 @@ esp_register_mac80211(struct esp_pub *epub)
         	}
 
         	rtnl_unlock();
-#endif
 #endif
 	}
 
