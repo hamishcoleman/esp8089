@@ -51,7 +51,7 @@ SRC_DIR=$(shell pwd)
 include $(KCONFIG)
 
 EXTRA_CFLAGS += -DDEBUG -DSIP_DEBUG \
-    -DRX_SENDUP_SYNC -DDEBUG_FS \
+    -DDEBUG_FS \
     -DSIF_DSR_WAR 
 
 OBJS = esp_debug.o sdio_sif_esp.o esp_io.o \
