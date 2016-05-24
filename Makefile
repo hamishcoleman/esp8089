@@ -54,8 +54,6 @@ EXTRA_CFLAGS += -DDEBUG -DSIP_DEBUG \
     -DKERNEL_IV_WAR -DRX_SENDUP_SYNC -DDEBUG_FS \
     -DSIF_DSR_WAR 
 
-EXTRA_CFLAGS += -DP2P_CONCURRENT 
-
 OBJS = esp_debug.o sdio_sif_esp.o esp_io.o \
     esp_file.o esp_main.o esp_sip.o esp_ext.o esp_ctrl.o \
     esp_mac80211.o esp_debug.o esp_utils.o esp_pm.o 
