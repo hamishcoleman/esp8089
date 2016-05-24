@@ -27,9 +27,7 @@
 
 #define GET_NEXT_SEQ(seq) (((seq) +1) & 0x0fff)
 
-#ifdef P2P_CONCURRENT
 static u8 esp_mac_addr[ETH_ALEN * 2];
-#endif
 static u8 getaddr_index(u8 * addr, struct esp_pub *epub);
 
 static
@@ -2216,15 +2214,12 @@ int
 esp_register_mac80211(struct esp_pub *epub)
 {
         int ret = 0;
-#ifdef P2P_CONCURRENT
 	u8 *wlan_addr;
 	u8 *p2p_addr;
 	int idx;
-#endif
 
         esp_pub_init_mac80211(epub);
 
-#ifdef P2P_CONCURRENT
 	epub->hw->wiphy->addresses = (struct mac_address *)esp_mac_addr;
 	memcpy(&epub->hw->wiphy->addresses[0], epub->mac_addr, ETH_ALEN);
 	memcpy(&epub->hw->wiphy->addresses[1], epub->mac_addr, ETH_ALEN);
@@ -2239,10 +2234,6 @@ esp_register_mac80211(struct esp_pub *epub)
         }
 
 	epub->hw->wiphy->n_addresses = 2;
-#else
-
-        SET_IEEE80211_PERM_ADDR(epub->hw, epub->mac_addr);
-#endif
 
         ret = ieee80211_register_hw(epub->hw);
 
@@ -2274,14 +2265,10 @@ esp_register_mac80211(struct esp_pub *epub)
 
 static u8 getaddr_index(u8 * addr, struct esp_pub *epub)
 {
-#ifdef P2P_CONCURRENT
 	int i;
 	for(i = 0; i < ESP_PUB_MAX_VIF; i++)
 		if(memcmp(addr, (u8 *)&epub->hw->wiphy->addresses[i], ETH_ALEN) == 0)
                 	return i;
 	return ESP_PUB_MAX_VIF;
-#else
-	return 0;
-#endif
 }
 
