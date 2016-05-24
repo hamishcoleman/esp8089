@@ -178,25 +178,26 @@ static int esp_download_fw(struct esp_pub *epub)
 	struct esp_fw_hdr *fhdr;
 	struct esp_fw_blk_hdr *bhdr = NULL;
 	struct sip_cmd_bootup bootcmd;
+	char *esp_fw_name;
 
 #ifndef HAS_FW
 
 	if (sif_get_ate_config() == 1) {
-		char *esp_fw_name = ESP_FW_NAME3;
+		esp_fw_name = ESP_FW_NAME3;
 	} else {
-		char *esp_fw_name =
+		esp_fw_name =
 		    epub->sdio_state ==
 		    ESP_SDIO_STATE_FIRST_INIT ? ESP_FW_NAME1 :
 		    ESP_FW_NAME2;
 	}
-	ret = esp_request_firmware(&fw_entry, esp_fw_name, epub->dev);
+	ret = request_firmware(&fw_entry, esp_fw_name, epub->dev);
 
 	if (ret)
 		return ret;
 
 	fw_buf = kmemdup(fw_entry->data, fw_entry->size, GFP_KERNEL);
 
-	esp_release_firmware(fw_entry);
+	release_firmware(fw_entry);
 
 	if (fw_buf == NULL) {
 		return -ENOMEM;
