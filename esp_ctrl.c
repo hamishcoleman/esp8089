@@ -124,16 +124,6 @@ int sip_parse_events(struct esp_sip *sip, u8 * buf)
 			//sip_txdone_clear(sip, txidle->last_seq);
 			break;
 		}
-#ifndef FAST_TX_STATUS
-	case SIP_EVT_TX_STATUS:{
-			struct sip_evt_tx_report *report =
-			    (struct sip_evt_tx_report *) (buf +
-							  SIP_CTRL_HDR_LEN);
-			sip_txdoneq_process(sip, report);
-
-			break;
-		}
-#endif				/* FAST_TX_STATUS */
 
 	case SIP_EVT_SCAN_RESULT:{
 			struct sip_evt_scan_report *report =
