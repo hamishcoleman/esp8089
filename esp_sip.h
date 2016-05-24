@@ -101,10 +101,6 @@ struct esp_sip {
         atomic_t rx_handling;
         atomic_t tx_data_pkt_queued;
 
-#ifndef FAST_TX_STATUS
-        atomic_t pending_tx_status;
-#endif /* !FAST_TX_STATUS */
-
         atomic_t data_tx_stopped;
         atomic_t tx_stopped;
 

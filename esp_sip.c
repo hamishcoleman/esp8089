@@ -83,10 +83,6 @@ static struct sip_trace str;
 
 #define SIP_STOP_QUEUE_THRESHOLD 48
 #define SIP_RESUME_QUEUE_THRESHOLD  12
-#ifndef FAST_TX_STATUS
-#define SIP_PENDING_STOP_TX_THRESHOLD 6
-#define SIP_PENDING_RESUME_TX_THRESHOLD 6
-#endif /* !FAST_TX_STATUS */
 
 #define SIP_MIN_DATA_PKT_LEN    (sizeof(struct esp_mac_rx_ctrl) + 24) //24 is min 80211hdr
 
@@ -119,10 +115,6 @@ static struct sk_buff * sip_parse_data_rx_info(struct esp_sip *sip, struct sk_bu
 
 static inline void sip_rx_pkt_enqueue(struct esp_sip *sip, struct sk_buff *skb);
 
-#ifndef FAST_TX_STATUS
-static void sip_after_tx_status_update(struct esp_sip *sip);
-#endif /* !FAST_TX_STATUS */
-
 static void sip_after_write_pkts(struct esp_sip *sip);
 
 static void sip_update_tx_credits(struct esp_sip *sip, u16 recycled_credits);
@@ -131,9 +123,7 @@ static void sip_update_tx_credits(struct esp_sip *sip, u16 recycled_credits);
 
 static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb);
 
-#ifdef FAST_TX_STATUS
 static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struct ieee80211_tx_info* tx_info, bool success);
-#endif /* FAST_TX_STATUS */
 
 #ifdef FPGA_TXDATA
 int sip_send_tx_data(struct esp_sip *sip);
@@ -885,26 +875,18 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
                         SIP_HDR_SET_TYPE(shdr->fc[0], SIP_DATA);
 
 		if(evif->epub == NULL){
-#ifndef FAST_TX_STATUS
-			/* TBD */
-#else
 			sip_tx_status_report(sip, skb, itx_info, false);
 			atomic_dec(&sip->tx_data_pkt_queued);
 			return -EINVAL;
-#endif /* FAST_TX_STATUS */
 		}
 
                 /* make room for encrypted pkt */
                 if (itx_info->control.hw_key) {
                         int alg = esp_cipher2alg(itx_info->control.hw_key->cipher);
                         if (unlikely(alg == -1)) {
-#ifndef FAST_TX_STATUS
-                                /* TBD */
-#else
                                 sip_tx_status_report(sip, skb, itx_info, false);
                                 atomic_dec(&sip->tx_data_pkt_queued);
                                 return -1;
-#endif /* FAST_TX_STATUS */
                         } else {
                                 shdr->d_enc_flag = alg + 1;
                         }
@@ -979,11 +961,6 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
 			spin_lock_bh(&sip->epub->tx_lock);
 			sip->txdataseq = shdr->seq;
 			spin_unlock_bh(&sip->epub->tx_lock);
-#ifndef FAST_TX_STATUS
-                /* store seq in driver data, need seq to pick pkt during tx status report */
-                *(u32 *)itx_info->driver_data = shdr->seq;
-                atomic_inc(&sip->pending_tx_status);
-#else
                 /* fake a tx_status and report to mac80211 stack to speed up tx, may affect
                  *  1) rate control (now it's all in target, so should be OK)
                  *  2) ps mode, mac80211 want to check ACK of ps/nulldata to see if AP is awake
@@ -996,7 +973,6 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
                 sip_tx_status_report(sip, skb, itx_info, true);
                 atomic_dec(&sip->tx_data_pkt_queued);
 
-#endif /* FAST_TX_STATUS */
                 STRACE_TX_DATA_INC();
         } else {
                 /* check pm state here */
@@ -1014,24 +990,6 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
 
         return 0;
 }
-
-#ifndef FAST_TX_STATUS
-static void
-sip_after_tx_status_update(struct esp_sip *sip)
-{
-        if (atomic_read(&sip->data_tx_stopped) == true && sip_tx_data_may_resume(sip)) {
-                atomic_set(&sip->data_tx_stopped, false);
-                if (sip_is_tx_mblk_avail(sip) == false) {
-                        esp_sip_dbg(ESP_DBG_ERROR, "%s mblk still unavail \n", __func__);
-                } else {
-                        esp_sip_dbg(ESP_DBG_TRACE, "%s trigger txq \n", __func__);
-                        sip_trigger_txq_process(sip);
-                }
-        } else if (!sip_tx_data_may_resume(sip)) { //JLU: this is redundant
-                STRACE_SHOW(sip);
-        }
-}
-#endif /* !FAST_TX_STATUS */
 
 #ifdef HOST_RC
 static void sip_set_tx_rate_status(struct sip_rc_status *rcstatus, struct ieee80211_tx_rate *irates)
@@ -1057,82 +1015,6 @@ static void sip_set_tx_rate_status(struct sip_rc_status *rcstatus, struct ieee80
 }
 #endif /* HOST_RC */
 
-#ifndef FAST_TX_STATUS
-static void
-sip_txdoneq_process(struct esp_sip *sip, struct sip_evt_tx_report *tx_report)
-{
-        struct sk_buff *skb, *tmp;
-        struct esp_pub *epub = sip->epub;
-        int matchs = 0;
-        struct ieee80211_tx_info *tx_info;
-        struct sip_tx_status *tx_status;
-        int i;
-
-        esp_sip_dbg(ESP_DBG_LOG, "%s enter, report->pkts %d, pending tx_status %d\n", __func__, tx_report->pkts, atomic_read(&sip->pending_tx_status));
-
-        /* traversal the txdone queue, find out matched skb by seq, hand over
-         * to up layer stack
-         */
-        for (i = 0; i < tx_report->pkts; i++) {
-                //esp_sip_dbg(ESP_DBG_TRACE, "%s status %d seq %u\n", __func__, i, tx_report->status[i].sip_seq);
-                skb_queue_walk_safe(&epub->txdoneq, skb, tmp) {
-                        tx_info = IEEE80211_SKB_CB(skb);
-
-                        //esp_sip_dbg(ESP_DBG_TRACE, "%s skb seq %u\n", __func__, *(u32 *)tx_info->driver_data);
-                        if (tx_report->status[i].sip_seq == *(u32 *)tx_info->driver_data) {
-                                tx_status = &tx_report->status[i];
-                                __skb_unlink(skb, &epub->txdoneq);
-
-                                //fill up ieee80211_tx_info
-                                //TBD: lock ??
-                                if (tx_status->errno == SIP_TX_ST_OK &&
-                                    !(tx_info->flags & IEEE80211_TX_CTL_NO_ACK)) {
-                                        tx_info->flags |= IEEE80211_TX_STAT_ACK;
-                                }
-#ifdef HOST_RC
-                                sip_set_tx_rate_status(&tx_report->status[i].rcstatus, &tx_info->status.rates[0]);
-                                esp_sip_dbg(ESP_DBG_TRACE, "%s idx0 %d, cnt0 %d, flags0 0x%02x\n", __func__, tx_info->status.rates[0].idx,tx_info->status.rates[0].count, tx_info->status.rates[0].flags);
-
-#else
-                                /* manipulate rate status... */
-                                tx_info->status.rates[0].idx = 0;
-                                tx_info->status.rates[0].count = 1;
-                                tx_info->status.rates[0].flags = 0;
-                                tx_info->status.rates[1].idx = -1;
-#endif /* HOST_RC */
-
-                                ieee80211_tx_status(epub->hw, skb);
-                                matchs++;
-                                atomic_dec(&sip->pending_tx_status);
-                                STRACE_RX_TXSTATUS_INC();
-                        }
-                }
-        }
-
-        if (matchs < tx_report->pkts) {
-                esp_sip_dbg(ESP_DBG_ERROR, "%s tx report mismatch! \n", __func__);
-        } else {
-                //esp_sip_dbg(ESP_DBG_TRACE, "%s tx report %d pkts! \n", __func__, matchs);
-        }
-
-        sip_after_tx_status_update(sip);
-}
-#else
-#ifndef FAST_TX_NOWAIT
-
-static void
-sip_txdoneq_process(struct esp_sip *sip)
-{
-        struct esp_pub *epub = sip->epub;
-        struct sk_buff *skb;
-        while ((skb = skb_dequeue(&epub->txdoneq))) {
-                ieee80211_tx_status(epub->hw, skb);
-        }
-}
-#endif
-#endif /* !FAST_TX_STATUS */
-
-#ifdef FAST_TX_STATUS
 static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struct ieee80211_tx_info *tx_info, bool success)
 {
         if(!(tx_info->flags & IEEE80211_TX_CTL_AMPDU)) {
@@ -1206,13 +1088,8 @@ static void sip_tx_status_report(struct esp_sip *sip, struct sk_buff *skb, struc
                 }
         }
 _exit:
-#ifndef FAST_TX_NOWAIT 
-        skb_queue_tail(&sip->epub->txdoneq, skb);
-#else
         ieee80211_tx_status(sip->epub->hw, skb);
-#endif
 }
-#endif /* FAST_TX_STATUS */
 
 /*
  *  NB: this routine should be locked when calling
@@ -1334,16 +1211,6 @@ sip_txq_process(struct esp_pub *epub)
 static void sip_after_write_pkts(struct esp_sip *sip)
 {
 
-#ifndef FAST_TX_NOWAIT
-        sip_txdoneq_process(sip);
-#endif
-        //disable tx_data
-#ifndef FAST_TX_STATUS
-        if (atomic_read(&sip->data_tx_stopped) == false && sip_tx_data_need_stop(sip)) {
-                esp_sip_dbg(ESP_DBG_TRACE, "%s data_tx_stopped \n", __func__);
-                atomic_set(&sip->data_tx_stopped, true);
-        }
-#endif /* FAST_TX_STATUS */
 }
 
 #ifndef NO_WMM_DUMMY
@@ -2091,20 +1958,6 @@ sip_queue_may_resume(struct esp_sip *sip)
 		&& atomic_read(&sip->tx_data_pkt_queued) < SIP_RESUME_QUEUE_THRESHOLD * 2)
 		|| atomic_read(&sip->tx_data_pkt_queued) < SIP_RESUME_QUEUE_THRESHOLD);
 }
-
-#ifndef FAST_TX_STATUS
-bool
-sip_tx_data_need_stop(struct esp_sip *sip)
-{
-        return atomic_read(&sip->pending_tx_status) >= SIP_PENDING_STOP_TX_THRESHOLD;
-}
-
-bool
-sip_tx_data_may_resume(struct esp_sip *sip)
-{
-        return atomic_read(&sip->pending_tx_status) < SIP_PENDING_RESUME_TX_THRESHOLD;
-}
-#endif /* FAST_TX_STATUS */
 
 int
 sip_cmd_enqueue(struct esp_sip *sip, struct sk_buff *skb, int prior)
