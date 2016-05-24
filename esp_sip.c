@@ -691,17 +691,7 @@ int sip_rx(struct esp_pub *epub)
 	}while(0);
 #endif
 
-#ifdef ESP_ACK_INTERRUPT
-#ifdef ESP_ACK_LATER
-		err = esp_common_read(epub, rx_buf, first_sz, ESP_SIF_NOSYNC, false);
-        sif_platform_ack_interrupt(epub);
-#else
-        sif_platform_ack_interrupt(epub);
-		err = esp_common_read(epub, rx_buf, first_sz, ESP_SIF_NOSYNC, false);
-#endif /* ESP_ACK_LATER */
-#else
         err = esp_common_read(epub, rx_buf, first_sz, ESP_SIF_NOSYNC, false);
-#endif //ESP_ACK_INTERRUPT
 	sip_rx_count++;
         if (unlikely(err)) {
                 esp_dbg(ESP_DBG_ERROR, " %s first read err %d %d\n", __func__, err, sif_get_regs(epub)->config_w0);

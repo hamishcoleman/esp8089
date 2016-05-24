@@ -52,9 +52,9 @@ include $(KCONFIG)
 
 EXTRA_CFLAGS += -DDEBUG -DSIP_DEBUG -DFAST_TX_STATUS \
     -DKERNEL_IV_WAR -DRX_SENDUP_SYNC -DDEBUG_FS \
-    -DSIF_DSR_WAR -DHAS_INIT_DATA -DHAS_FW 
+    -DSIF_DSR_WAR -DHAS_FW 
 
-EXTRA_CFLAGS += -DP2P_CONCURRENT -DESP_USE_SDIO
+EXTRA_CFLAGS += -DP2P_CONCURRENT 
 
 OBJS = esp_debug.o sdio_sif_esp.o esp_io.o \
     esp_file.o esp_main.o esp_sip.o esp_ext.o esp_ctrl.o \
