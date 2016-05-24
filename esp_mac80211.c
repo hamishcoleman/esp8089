@@ -1342,30 +1342,6 @@ static void esp_tx_work(struct work_struct *work)
 	mutex_unlock(&epub->tx_mtx);
 }
 
-#ifndef RX_SENDUP_SYNC
-//for debug
-static int data_pkt_dequeue_cnt = 0;
-static void _esp_flush_rxq(struct esp_pub *epub)
-{
-	struct sk_buff *skb = NULL;
-
-	while ((skb = skb_dequeue(&epub->rxq))) {
-		//do not log when in spin_lock
-		//esp_dbg(ESP_DBG_TRACE, "%s call ieee80211_rx \n", __func__);
-		ieee80211_rx(epub->hw, skb);
-	}
-}
-
-static void esp_sendup_work(struct work_struct *work)
-{
-	struct esp_pub *epub =
-	    container_of(work, struct esp_pub, sendup_work);
-	spin_lock_bh(&epub->rx_lock);
-	_esp_flush_rxq(epub);
-	spin_unlock_bh(&epub->rx_lock);
-}
-#endif				/* !RX_SENDUP_SYNC */
-
 static const struct ieee80211_ops esp_mac80211_ops = {
 	.tx = esp_op_tx,
 	.start = esp_op_start,
@@ -1441,9 +1417,6 @@ struct esp_pub *esp_pub_alloc_mac80211(struct device *dev)
 	spin_lock_init(&epub->rx_lock);
 
 	INIT_WORK(&epub->tx_work, esp_tx_work);
-#ifndef RX_SENDUP_SYNC
-	INIT_WORK(&epub->sendup_work, esp_sendup_work);
-#endif				//!RX_SENDUP_SYNC
 
 	//epub->esp_wkq = create_freezable_workqueue("esp_wkq"); 
 	epub->esp_wkq = create_singlethread_workqueue("esp_wkq");
