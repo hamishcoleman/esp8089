@@ -11,10 +11,6 @@
 #include <linux/version.h>
 #include <linux/firmware.h>
 
-
-#define GET_INODE_FROM_FILEP(filp) \
-    (filp)->f_dentry->d_inode
-
 #define E_ROUND_UP(x, y)  ((((x) + ((y) - 1)) / (y)) * (y))
 
 #define CONF_ATTR_LEN 24
