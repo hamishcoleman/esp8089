@@ -15,10 +15,10 @@
 u32 esp_ieee2mhz(u8 chan);
 
 enum ieee80211_key_alg {
-        ALG_WEP,
-        ALG_TKIP,
-        ALG_CCMP,
-        ALG_AES_CMAC
+	ALG_WEP,
+	ALG_TKIP,
+	ALG_CCMP,
+	ALG_AES_CMAC
 };
 
 int esp_cipher2alg(int cipher);

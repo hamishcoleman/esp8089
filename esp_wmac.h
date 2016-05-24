@@ -8,47 +8,41 @@
 #define _ESP_WMAC_H_
 
 struct esp_mac_rx_ctrl {
-        signed rssi:8;
-        unsigned rate:4;
-        unsigned is_group:1;
-        unsigned:1;
-        unsigned sig_mode:2;
-        unsigned legacy_length:12;
-        unsigned damatch0:1;
-        unsigned damatch1:1;
-        unsigned bssidmatch0:1;
-        unsigned bssidmatch1:1;
-        unsigned MCS:7;
-        unsigned CWB:1;
-        unsigned HT_length:16;
-        unsigned Smoothing:1;
-        unsigned Not_Sounding:1;
-        unsigned:1;
-        unsigned Aggregation:1;
-        unsigned STBC:2;
-        unsigned FEC_CODING:1;
-        unsigned SGI:1;
-        unsigned rxend_state:8;
-        unsigned ampdu_cnt:8;
-        unsigned channel:4;
-        unsigned:4;
+	signed rssi:8;
+	unsigned rate:4;
+	unsigned is_group:1;
+	unsigned:1;
+	unsigned sig_mode:2;
+	unsigned legacy_length:12;
+	unsigned damatch0:1;
+	unsigned damatch1:1;
+	unsigned bssidmatch0:1;
+	unsigned bssidmatch1:1;
+	unsigned MCS:7;
+	unsigned CWB:1;
+	unsigned HT_length:16;
+	unsigned Smoothing:1;
+	unsigned Not_Sounding:1;
+	unsigned:1;
+	unsigned Aggregation:1;
+	unsigned STBC:2;
+	unsigned FEC_CODING:1;
+	unsigned SGI:1;
+	unsigned rxend_state:8;
+	unsigned ampdu_cnt:8;
+	unsigned channel:4;
+	unsigned:4;
 	signed noise_floor:8;
 };
 
 struct esp_rx_ampdu_len {
-        unsigned substate:8;
-        unsigned sublen:12;
-        unsigned :12;
+	unsigned substate:8;
+	unsigned sublen:12;
+	unsigned:12;
 };
 
 struct esp_tx_ampdu_entry {
-        u32 sub_len:12,
-            dili_num:7,
-            :1,
-            null_byte:2,
-            data:1,
-            enc:1,
-            seq:8;
+	u32 sub_len:12, dili_num:7,:1, null_byte:2, data:1, enc:1, seq:8;
 };
 
 //rxend_state flags
@@ -85,4 +79,4 @@ struct esp_tx_ampdu_entry {
 s8 esp_wmac_rate2idx(u8 rate);
 bool esp_wmac_rxsec_error(u8 error);
 
-#endif /* _ESP_WMAC_H_ */
+#endif				/* _ESP_WMAC_H_ */

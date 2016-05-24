@@ -26,6 +26,6 @@ struct esp_init_table_elem {
 };
 
 int request_init_conf(void);
-void fix_init_data(u8 *init_data_buf, int buf_size);
+void fix_init_data(u8 * init_data_buf, int buf_size);
 
-#endif /* _ESP_FILE_H_ */
+#endif				/* _ESP_FILE_H_ */

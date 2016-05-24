@@ -21,11 +21,11 @@
 struct sk_buff;
 
 struct sip_pkt {
-        struct list_head list;
+	struct list_head list;
 
-        u8 * buf_begin;
-        u32  buf_len;
-        u8 * buf;
+	u8 *buf_begin;
+	u32 buf_len;
+	u8 *buf;
 };
 
 typedef enum RECALC_CREDIT_STATE {
@@ -39,85 +39,85 @@ typedef enum ENQUEUE_PRIOR {
 } ENQUEUE_PRIOR;
 
 typedef enum SIP_STATE {
-        SIP_INIT = 0,
+	SIP_INIT = 0,
 	SIP_PREPARE_BOOT,
-        SIP_BOOT,
+	SIP_BOOT,
 	SIP_SEND_INIT,
 	SIP_WAIT_BOOTUP,
-        SIP_RUN,
-        SIP_SUSPEND,
-        SIP_STOP
+	SIP_RUN,
+	SIP_SUSPEND,
+	SIP_STOP
 } SIP_STATE;
 
 enum sip_notifier {
-        SIP_TX_DONE = 1,
-        SIP_RX_DONE = 2,
+	SIP_TX_DONE = 1,
+	SIP_RX_DONE = 2,
 };
 
-#define SIP_CREDITS_LOW_THRESHOLD  64  //i.e. 4k
+#define SIP_CREDITS_LOW_THRESHOLD  64	//i.e. 4k
 
 struct esp_sip {
-        struct list_head free_ctrl_txbuf;
-        struct list_head free_ctrl_rxbuf;
+	struct list_head free_ctrl_txbuf;
+	struct list_head free_ctrl_rxbuf;
 
-        u32 rxseq; /* sip pkt seq, should match target side */
-        u32 txseq;
+	u32 rxseq;		/* sip pkt seq, should match target side */
+	u32 txseq;
 	u32 txdataseq;
 
-        u8 to_host_seq;
+	u8 to_host_seq;
 
-        atomic_t state;
-        spinlock_t lock;
-        atomic_t tx_credits;
+	atomic_t state;
+	spinlock_t lock;
+	atomic_t tx_credits;
 
-        atomic_t tx_ask_credit_update;
+	atomic_t tx_ask_credit_update;
 
-        u8 * rawbuf;  /* used in boot stage, free once chip is fully up */
-        u8 * tx_aggr_buf;
-        u8 * tx_aggr_write_ptr;  /* update after insertion of each pkt */
-        u8 * tx_aggr_lastpkt_ptr;
+	u8 *rawbuf;		/* used in boot stage, free once chip is fully up */
+	u8 *tx_aggr_buf;
+	u8 *tx_aggr_write_ptr;	/* update after insertion of each pkt */
+	u8 *tx_aggr_lastpkt_ptr;
 
-	struct mutex rx_mtx; 
-        struct sk_buff_head rxq;
-        struct work_struct rx_process_work;
+	struct mutex rx_mtx;
+	struct sk_buff_head rxq;
+	struct work_struct rx_process_work;
 
-        u16 tx_blksz;
-        u16 rx_blksz;
+	u16 tx_blksz;
+	u16 rx_blksz;
 
-        bool dump_rpbm_err;
-        bool sendup_rpbm_pkt;
-        bool rxabort_fixed;
-        bool support_bgscan;
-        u8 credit_to_reserve;
-	
+	bool dump_rpbm_err;
+	bool sendup_rpbm_pkt;
+	bool rxabort_fixed;
+	bool support_bgscan;
+	u8 credit_to_reserve;
+
 	atomic_t credit_status;
 	struct timer_list credit_timer;
 
 	atomic_t noise_floor;
 
-        u32 tx_tot_len; /* total len for one transaction */
-        u32 rx_tot_len;
+	u32 tx_tot_len;		/* total len for one transaction */
+	u32 rx_tot_len;
 
-        atomic_t rx_handling;
-        atomic_t tx_data_pkt_queued;
+	atomic_t rx_handling;
+	atomic_t tx_data_pkt_queued;
 
-        atomic_t data_tx_stopped;
-        atomic_t tx_stopped;
+	atomic_t data_tx_stopped;
+	atomic_t tx_stopped;
 
-        struct esp_pub *epub;
+	struct esp_pub *epub;
 };
 
-int sip_rx(struct esp_pub * epub);
+int sip_rx(struct esp_pub *epub);
 //int sip_download_fw(struct esp_sip *sip, u32 load_addr, u32 boot_addr);
 
 
-int sip_write_memory(struct esp_sip *, u32 addr, u8* buf, u16 len);
+int sip_write_memory(struct esp_sip *, u32 addr, u8 * buf, u16 len);
 
 void sip_credit_process(struct esp_pub *, u8 credits);
 
-int sip_send_cmd(struct esp_sip *sip, int cid, u32 cmdlen, void * cmd);
+int sip_send_cmd(struct esp_sip *sip, int cid, u32 cmdlen, void *cmd);
 
-struct esp_sip * sip_attach(struct esp_pub *);
+struct esp_sip *sip_attach(struct esp_pub *);
 
 int sip_post_init(struct esp_sip *sip, struct sip_evt_bootup2 *bevt);
 
@@ -125,9 +125,10 @@ void sip_detach(struct esp_sip *sip);
 
 void sip_txq_process(struct esp_pub *epub);
 
-struct sk_buff * sip_alloc_ctrl_skbuf(struct esp_sip *sip, u16 len, u32 cid);
+struct sk_buff *sip_alloc_ctrl_skbuf(struct esp_sip *sip, u16 len,
+				     u32 cid);
 
-void sip_free_ctrl_skbuff(struct esp_sip *sip, struct sk_buff* skb);
+void sip_free_ctrl_skbuff(struct esp_sip *sip, struct sk_buff *skb);
 
 bool sip_queue_need_stop(struct esp_sip *sip);
 bool sip_queue_may_resume(struct esp_sip *sip);
@@ -155,6 +156,6 @@ void mod_support_no_txampdu_set(bool value);
 
 #ifdef FPGA_DEBUG
 int sip_send_bootup(struct esp_sip *sip);
-#endif /* FPGA_DEBUG */
+#endif				/* FPGA_DEBUG */
 void sip_debug_show(struct esp_sip *sip);
 #endif

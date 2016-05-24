@@ -3,4 +3,4 @@
 #define FWPATH "/lib/firmware"
 //module_param_string(fwpath, fwpath, sizeof(fwpath), 0644);
 
-#endif /* _ESP_PATH_H_ */
+#endif				/* _ESP_PATH_H_ */
