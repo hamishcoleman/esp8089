@@ -13,7 +13,6 @@
 #include <net/mac80211.h>
 #include <linux/version.h>
 #include <net/regulatory.h>
-#include <../net/mac80211/ieee80211_i.h>
 #include "esp_pub.h"
 #include "esp_sip.h"
 #include "esp_ctrl.h"
@@ -475,7 +474,6 @@ static void esp_op_bss_info_changed(struct ieee80211_hw *hw,
 {
 	struct esp_pub *epub = (struct esp_pub *) hw->priv;
 	struct esp_vif *evif = (struct esp_vif *) vif->drv_priv;
-	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
 
 	// ieee80211_bss_conf(include/net/mac80211.h) is included in ieee80211_sub_if_data(net/mac80211/ieee80211_i.h) , does bssid=ieee80211_if_ap's ssid ?
 	// in 2.6.27, ieee80211_sub_if_data has ieee80211_bss_conf while in 2.6.32 ieee80211_sub_if_data don't have ieee80211_bss_conf
@@ -528,8 +526,7 @@ static void esp_op_bss_info_changed(struct ieee80211_hw *hw,
 							 bssid, 2);
 				evif->ap_up = true;
 			} else if (!info->enable_beacon && evif->ap_up &&
-				   !test_bit(SDATA_STATE_OFFCHANNEL,
-					     &sdata->state)
+				!(hw->conf.flags & IEEE80211_CONF_OFFCHANNEL)
 			    ) {
 				ESP_IEEE80211_DBG(ESP_DBG_TRACE,
 						  " %s AP disable beacon, interval is %d\n",
