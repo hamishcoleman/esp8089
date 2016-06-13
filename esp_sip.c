@@ -1637,7 +1637,7 @@ static int sip_parse_mac_rx_info(struct esp_sip *sip,
 	}
 
 	rx_status->antenna = 0;	/* one antenna for now */
-	rx_status->band = IEEE80211_BAND_2GHZ;
+	rx_status->band = NL80211_BAND_2GHZ;
 	rx_status->flag = RX_FLAG_DECRYPTED | RX_FLAG_MMIC_STRIPPED;
 	if (mac_ctrl->sig_mode) {
 		rx_status->flag |= RX_FLAG_HT;

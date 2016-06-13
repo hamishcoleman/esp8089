@@ -85,7 +85,7 @@ typedef struct esp_wl {
 	atomic_t tkip_key_set;
 
 	/* so far only 2G band */
-	struct ieee80211_supported_band sbands[IEEE80211_NUM_BANDS];
+	struct ieee80211_supported_band sbands[NUM_NL80211_BANDS];
 
 	unsigned long flags;
 	atomic_t off;

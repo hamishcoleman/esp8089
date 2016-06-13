@@ -749,7 +749,7 @@ int sip_send_set_sta(struct esp_pub *epub, u8 ifidx, u8 set,
 			    sta->ht_cap.ampdu_density;
 		} else {
 			if (sta->
-			    supp_rates[IEEE80211_BAND_2GHZ] & (~(u32)
+			    supp_rates[NL80211_BAND_2GHZ] & (~(u32)
 							       CONF_HW_BIT_RATE_11B_MASK))
 			{
 				setstacmd->phymode = ESP_IEEE80211_T_OFDM;

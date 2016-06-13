@@ -1596,30 +1596,30 @@ static void esp_pub_init_mac80211(struct esp_pub *epub)
 
 	atomic_set(&epub->wl.off, 1);
 
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].band = IEEE80211_BAND_2GHZ;
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].channels = esp_channels_2ghz;
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].bitrates = esp_rates_2ghz;
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].n_channels =
+	epub->wl.sbands[NL80211_BAND_2GHZ].band = NL80211_BAND_2GHZ;
+	epub->wl.sbands[NL80211_BAND_2GHZ].channels = esp_channels_2ghz;
+	epub->wl.sbands[NL80211_BAND_2GHZ].bitrates = esp_rates_2ghz;
+	epub->wl.sbands[NL80211_BAND_2GHZ].n_channels =
 	    ARRAY_SIZE(esp_channels_2ghz);
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].n_bitrates =
+	epub->wl.sbands[NL80211_BAND_2GHZ].n_bitrates =
 	    ARRAY_SIZE(esp_rates_2ghz);
 	/*add to support 11n */
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ht_supported = true;
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.cap = 0x116C;	//IEEE80211_HT_CAP_RX_STBC; //IEEE80211_HT_CAP_SGI_20;
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ampdu_factor =
+	epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.ht_supported = true;
+	epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.cap = 0x116C;	//IEEE80211_HT_CAP_RX_STBC; //IEEE80211_HT_CAP_SGI_20;
+	epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.ampdu_factor =
 	    IEEE80211_HT_MAX_AMPDU_16K;
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.ampdu_density =
+	epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.ampdu_density =
 	    IEEE80211_HT_MPDU_DENSITY_NONE;
-	memset(&epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs, 0,
-	       sizeof(epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs));
-	epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs.rx_mask[0] = 0xff;
-	//epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs.rx_highest = 7;
-	//epub->wl.sbands[IEEE80211_BAND_2GHZ].ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED;
+	memset(&epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.mcs, 0,
+	       sizeof(epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.mcs));
+	epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.mcs.rx_mask[0] = 0xff;
+	//epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.mcs.rx_highest = 7;
+	//epub->wl.sbands[NL80211_BAND_2GHZ].ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED;
 
 	/* BAND_5GHZ TBD */
 
-	hw->wiphy->bands[IEEE80211_BAND_2GHZ] =
-	    &epub->wl.sbands[IEEE80211_BAND_2GHZ];
+	hw->wiphy->bands[NL80211_BAND_2GHZ] =
+	    &epub->wl.sbands[NL80211_BAND_2GHZ];
 	/* BAND_5GHZ TBD */
 
 	/*no fragment */
