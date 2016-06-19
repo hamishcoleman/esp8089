@@ -322,7 +322,7 @@ u8 beacon_tim_saved[BEACON_TIM_SAVE_MAX];
 int beacon_tim_count;
 static void beacon_tim_init(void)
 {
-	memset(beacon_tim_saved, BEACON_TIM_SAVE_MAX, 0);
+	memset(beacon_tim_saved, 0, BEACON_TIM_SAVE_MAX);
 	beacon_tim_count = 0;
 }
 
@@ -1198,141 +1198,6 @@ void esp_op_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	} while (0);
 }
 
-static int esp_op_ampdu_action(struct ieee80211_hw *hw,
-			       struct ieee80211_vif *vif,
-			       enum ieee80211_ampdu_mlme_action action,
-			       struct ieee80211_sta *sta, u16 tid,
-			       u16 * ssn, u8 buf_size, bool amsdu)
-{
-	int ret = -EOPNOTSUPP;
-	struct esp_pub *epub = (struct esp_pub *) hw->priv;
-	struct esp_node *node = (struct esp_node *) sta->drv_priv;
-	struct esp_tx_tid *tid_info = &node->tid[tid];
-
-	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter \n", __func__);
-	switch (action) {
-	case IEEE80211_AMPDU_TX_START:
-		if (mod_support_no_txampdu() ||
-		    cfg80211_get_chandef_type(&epub->hw->conf.chandef) ==
-		    NL80211_CHAN_NO_HT || !sta->ht_cap.ht_supported)
-			return ret;
-
-		//if (vif->p2p || vif->type != NL80211_IFTYPE_STATION)
-		//      return ret;
-
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
-				  "%s TX START, addr:%pM,tid:%u,state:%d\n",
-				  __func__, sta->addr, tid,
-				  tid_info->state);
-		spin_lock_bh(&epub->tx_ampdu_lock);
-		ESSERT(tid_info->state == ESP_TID_STATE_TRIGGER);
-		*ssn = tid_info->ssn;
-		tid_info->state = ESP_TID_STATE_PROGRESS;
-
-		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
-		spin_unlock_bh(&epub->tx_ampdu_lock);
-		ret = 0;
-		spin_lock_bh(&epub->tx_ampdu_lock);
-
-		if (tid_info->state != ESP_TID_STATE_PROGRESS) {
-			if (tid_info->state == ESP_TID_STATE_INIT) {
-				printk(KERN_ERR "%s WIFI RESET, IGNORE\n",
-				       __func__);
-				spin_unlock_bh(&epub->tx_ampdu_lock);
-				return -ENETRESET;
-			} else {
-				ESSERT(0);
-			}
-		}
-
-		tid_info->state = ESP_TID_STATE_OPERATIONAL;
-		spin_unlock_bh(&epub->tx_ampdu_lock);
-		ret =
-		    sip_send_ampdu_action(epub, SIP_AMPDU_TX_OPERATIONAL,
-					  sta->addr, tid, node->ifidx,
-					  buf_size);
-		break;
-	case IEEE80211_AMPDU_TX_STOP_CONT:
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
-				  "%s TX STOP, addr:%pM,tid:%u,state:%d\n",
-				  __func__, sta->addr, tid,
-				  tid_info->state);
-		spin_lock_bh(&epub->tx_ampdu_lock);
-		if (tid_info->state == ESP_TID_STATE_WAIT_STOP)
-			tid_info->state = ESP_TID_STATE_STOP;
-		else
-			tid_info->state = ESP_TID_STATE_INIT;
-		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
-		spin_unlock_bh(&epub->tx_ampdu_lock);
-		ret =
-		    sip_send_ampdu_action(epub, SIP_AMPDU_TX_STOP,
-					  sta->addr, tid, node->ifidx, 0);
-		break;
-	case IEEE80211_AMPDU_TX_STOP_FLUSH:
-	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
-		if (tid_info->state == ESP_TID_STATE_WAIT_STOP)
-			tid_info->state = ESP_TID_STATE_STOP;
-		else
-			tid_info->state = ESP_TID_STATE_INIT;
-		ret =
-		    sip_send_ampdu_action(epub, SIP_AMPDU_TX_STOP,
-					  sta->addr, tid, node->ifidx, 0);
-		break;
-	case IEEE80211_AMPDU_TX_OPERATIONAL:
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
-				  "%s TX OPERATION, addr:%pM,tid:%u,state:%d\n",
-				  __func__, sta->addr, tid,
-				  tid_info->state);
-		spin_lock_bh(&epub->tx_ampdu_lock);
-
-		if (tid_info->state != ESP_TID_STATE_PROGRESS) {
-			if (tid_info->state == ESP_TID_STATE_INIT) {
-				printk(KERN_ERR "%s WIFI RESET, IGNORE\n",
-				       __func__);
-				spin_unlock_bh(&epub->tx_ampdu_lock);
-				return -ENETRESET;
-			} else {
-				ESSERT(0);
-			}
-		}
-
-		tid_info->state = ESP_TID_STATE_OPERATIONAL;
-		spin_unlock_bh(&epub->tx_ampdu_lock);
-		ret =
-		    sip_send_ampdu_action(epub, SIP_AMPDU_TX_OPERATIONAL,
-					  sta->addr, tid, node->ifidx,
-					  buf_size);
-		break;
-	case IEEE80211_AMPDU_RX_START:
-		if (mod_support_no_rxampdu() ||
-		    cfg80211_get_chandef_type(&epub->hw->conf.chandef) ==
-		    NL80211_CHAN_NO_HT || !sta->ht_cap.ht_supported)
-			return ret;
-
-		if ((vif->p2p && false)
-		    || (vif->type != NL80211_IFTYPE_STATION && false)
-		    )
-			return ret;
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
-				  "%s RX START %pM tid %u %u\n", __func__,
-				  sta->addr, tid, *ssn);
-		ret =
-		    sip_send_ampdu_action(epub, SIP_AMPDU_RX_START,
-					  sta->addr, tid, *ssn, 64);
-		break;
-	case IEEE80211_AMPDU_RX_STOP:
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR, "%s RX STOP %pM tid %u\n",
-				  __func__, sta->addr, tid);
-		ret =
-		    sip_send_ampdu_action(epub, SIP_AMPDU_RX_STOP,
-					  sta->addr, tid, 0, 0);
-		break;
-	default:
-		break;
-	}
-	return ret;
-}
-
 static void esp_tx_work(struct work_struct *work)
 {
 	struct esp_pub *epub = container_of(work, struct esp_pub, tx_work);
@@ -1374,7 +1239,6 @@ static const struct ieee80211_ops esp_mac80211_ops = {
 	.remain_on_channel = esp_op_remain_on_channel,
 	.cancel_remain_on_channel = esp_op_cancel_remain_on_channel,
 #endif
-	.ampdu_action = esp_op_ampdu_action,
 	//.get_survey = esp_op_get_survey,
 	.sta_add = esp_op_sta_add,
 	.sta_remove = esp_op_sta_remove,
