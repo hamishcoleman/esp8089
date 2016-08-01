@@ -1197,11 +1197,14 @@ void esp_op_flush(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 static int esp_op_ampdu_action(struct ieee80211_hw *hw,
 			       struct ieee80211_vif *vif,
-			       enum ieee80211_ampdu_mlme_action action,
-			       struct ieee80211_sta *sta, u16 tid,
-			       u16 * ssn, u8 buf_size, bool amsdu)
+			       struct ieee80211_ampdu_params *params)
 {
 	int ret = -EOPNOTSUPP;
+	enum ieee80211_ampdu_mlme_action action = params->action;
+	struct ieee80211_sta *sta = params->sta;
+	u16 tid = params->tid;
+	u16 *ssn = &params->ssn;
+	u8 buf_size = params->buf_size;
 	struct esp_pub *epub = (struct esp_pub *) hw->priv;
 	struct esp_node *node = (struct esp_node *) sta->drv_priv;
 	struct esp_tx_tid *tid_info = &node->tid[tid];
