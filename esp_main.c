@@ -168,9 +168,7 @@ struct esp_fw_blk_hdr {
 #ifndef FPGA_DEBUG
 static int esp_download_fw(struct esp_pub *epub)
 {
-#ifndef HAS_FW
 	const struct firmware *fw_entry;
-#endif				/* !HAS_FW */
 	u8 *fw_buf = NULL;
 	u32 offset = 0;
 	int ret = 0;
@@ -179,8 +177,6 @@ static int esp_download_fw(struct esp_pub *epub)
 	struct esp_fw_blk_hdr *bhdr = NULL;
 	struct sip_cmd_bootup bootcmd;
 	char *esp_fw_name;
-
-#ifndef HAS_FW
 
 	if (sif_get_ate_config() == 1) {
 		esp_fw_name = ESP_FW_NAME3;
@@ -202,20 +198,6 @@ static int esp_download_fw(struct esp_pub *epub)
 	if (fw_buf == NULL) {
 		return -ENOMEM;
 	}
-#else
-
-#include "eagle_fw1.h"
-#include "eagle_fw2.h"
-#include "eagle_fw3.h"
-	if (sif_get_ate_config() == 1) {
-		fw_buf = &eagle_fw3[0];
-	} else {
-		fw_buf =
-		    epub->sdio_state ==
-		    ESP_SDIO_STATE_FIRST_INIT ? &eagle_fw1[0] :
-		    &eagle_fw2[0];
-	}
-#endif				/* HAS_FW */
 
 	fhdr = (struct esp_fw_hdr *) fw_buf;
 
@@ -258,11 +240,13 @@ static int esp_download_fw(struct esp_pub *epub)
 		goto _err;
 
       _err:
-#ifndef HAS_FW
 	kfree(fw_buf);
-#endif				/* !HAS_FW */
 
 	return ret;
 
 }
+
+MODULE_FIRMWARE(ESP_FW_NAME1);
+MODULE_FIRMWARE(ESP_FW_NAME2);
+MODULE_FIRMWARE(ESP_FW_NAME3);
 #endif				/* !FPGA_DEBUG */
