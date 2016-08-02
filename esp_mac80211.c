@@ -1232,25 +1232,6 @@ static int esp_op_ampdu_action(struct ieee80211_hw *hw,
 		ieee80211_start_tx_ba_cb_irqsafe(vif, sta->addr, tid);
 		spin_unlock_bh(&epub->tx_ampdu_lock);
 		ret = 0;
-		spin_lock_bh(&epub->tx_ampdu_lock);
-
-		if (tid_info->state != ESP_TID_STATE_PROGRESS) {
-			if (tid_info->state == ESP_TID_STATE_INIT) {
-				printk(KERN_ERR "%s WIFI RESET, IGNORE\n",
-				       __func__);
-				spin_unlock_bh(&epub->tx_ampdu_lock);
-				return -ENETRESET;
-			} else {
-				ESSERT(0);
-			}
-		}
-
-		tid_info->state = ESP_TID_STATE_OPERATIONAL;
-		spin_unlock_bh(&epub->tx_ampdu_lock);
-		ret =
-		    sip_send_ampdu_action(epub, SIP_AMPDU_TX_OPERATIONAL,
-					  sta->addr, tid, node->ifidx,
-					  buf_size);
 		break;
 	case IEEE80211_AMPDU_TX_STOP_CONT:
 		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
