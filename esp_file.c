@@ -23,14 +23,68 @@ module_param_named(config, modparam_init_data_conf, charp, 0444);
 MODULE_PARM_DESC(config, "Firmware init config string (format: key=value;)");
 
 struct esp_init_table_elem esp_init_table[MAX_ATTR_NUM] = {
+	/*
+	 * Crystal type:
+	 * 0: 40MHz (default)
+	 * 1: 26MHz (ESP8266 ESP-12F)
+	 */
 	{"crystal_26M_en", 48, 0},
+	/*
+	 * Output crystal clock to pin:
+	 * 0: None
+	 * 1: GPIO1
+	 * 2: URXD0
+	 */
 	{"test_xtal", 49, 0},
+	/*
+	 * Host SDIO mode:
+	 * 0: Auto by pin strapping
+	 * 1: SDIO data output on negative edges (SDIO v1.1)
+	 * 2: SDIO data output on positive edges (SDIO v2.0)
+	 */
 	{"sdio_configure", 50, 2},
+	/*
+	 * WiFi/Bluetooth co-existence with BK3515A BT chip
+	 * 0: None
+	 * 1: GPIO0->WLAN_ACTIVE, MTMS->BT_ACTIVE, MTDI->BT_PRIORITY,
+	 *    U0TXD->ANT_SEL_BT, U0RXD->ANT_SEL_WIFI
+	 */
 	{"bt_configure", 51, 0},
+	/*
+	 * Antenna selection:
+	 * 0: Antenna is for WiFi
+	 * 1: Antenna is for Bluetooth
+	 */
 	{"bt_protocol", 52, 0},
+	/*
+	 * Dual antenna configuration mode:
+	 * 0: None
+	 * 1: U0RXD + XPD_DCDC
+	 * 2: U0RXD + GPIO0
+	 * 3: U0RXD + U0TXD
+	 */
 	{"dual_ant_configure", 53, 0},
+	/*
+	 * Firmware debugging output pin:
+	 * 0: None
+	 * 1: UART TX on GPIO2
+	 * 2: UART TX on U0TXD
+	 */
 	{"test_uart_configure", 54, 2},
+	/*
+	 * Whether to share crystal clock with BT (in sleep mode):
+	 * 0: no
+	 * 1: always on
+	 * 2: automatically on according to XPD_DCDC
+	 */
 	{"share_xtal", 55, 0},
+	/*
+	 * Allow chip to be woken up during sleep on pin:
+	 * 0: None
+	 * 1: XPD_DCDC
+	 * 2: GPIO0
+	 * 3: Both XPD_DCDC and GPIO0
+	 */
 	{"gpio_wake", 56, 0},
 	{"no_auto_sleep", 57, 0},
 	{"speed_suspend", 58, 0},
@@ -40,6 +94,11 @@ struct esp_init_table_elem esp_init_table[MAX_ATTR_NUM] = {
 	{"attr14", -1, -1},
 	{"attr15", -1, -1},
 	//attr that is not send to target
+	/*
+	 * Allow chip to be reset by GPIO pin:
+	 * 0: no
+	 * 1: yes
+	 */
 	{"ext_rst", -1, 0},
 	{"wakeup_gpio", -1, 12},
 	{"ate_test", -1, 0},
@@ -48,7 +107,6 @@ struct esp_init_table_elem esp_init_table[MAX_ATTR_NUM] = {
 	{"attr21", -1, -1},
 	{"attr22", -1, -1},
 	{"attr23", -1, -1},
-
 };
 
 static void show_esp_init_table(struct esp_init_table_elem *econf)
