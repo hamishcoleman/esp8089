@@ -18,56 +18,98 @@
 #include "esp_debug.h"
 #include "esp_sif.h"
 
-#include "esp_path.h"
-#include "esp_conf.h"
+static char *modparam_init_data_conf;
+module_param_named(config, modparam_init_data_conf, charp, 0444);
+MODULE_PARM_DESC(config, "Firmware init config string (format: key=value;)");
 
 struct esp_init_table_elem esp_init_table[MAX_ATTR_NUM] = {
-	{"crystal_26M_en", 48, -1},
-	{"test_xtal", 49, -1},
-	{"sdio_configure", 50, -1},
-	{"bt_configure", 51, -1},
-	{"bt_protocol", 52, -1},
-	{"dual_ant_configure", 53, -1},
-	{"test_uart_configure", 54, -1},
-	{"share_xtal", 55, -1},
-	{"gpio_wake", 56, -1},
-	{"no_auto_sleep", 57, -1},
-	{"speed_suspend", 58, -1},
+	/*
+	 * Crystal type:
+	 * 0: 40MHz (default)
+	 * 1: 26MHz (ESP8266 ESP-12F)
+	 */
+	{"crystal_26M_en", 48, 0},
+	/*
+	 * Output crystal clock to pin:
+	 * 0: None
+	 * 1: GPIO1
+	 * 2: URXD0
+	 */
+	{"test_xtal", 49, 0},
+	/*
+	 * Host SDIO mode:
+	 * 0: Auto by pin strapping
+	 * 1: SDIO data output on negative edges (SDIO v1.1)
+	 * 2: SDIO data output on positive edges (SDIO v2.0)
+	 */
+	{"sdio_configure", 50, 2},
+	/*
+	 * WiFi/Bluetooth co-existence with BK3515A BT chip
+	 * 0: None
+	 * 1: GPIO0->WLAN_ACTIVE, MTMS->BT_ACTIVE, MTDI->BT_PRIORITY,
+	 *    U0TXD->ANT_SEL_BT, U0RXD->ANT_SEL_WIFI
+	 */
+	{"bt_configure", 51, 0},
+	/*
+	 * Antenna selection:
+	 * 0: Antenna is for WiFi
+	 * 1: Antenna is for Bluetooth
+	 */
+	{"bt_protocol", 52, 0},
+	/*
+	 * Dual antenna configuration mode:
+	 * 0: None
+	 * 1: U0RXD + XPD_DCDC
+	 * 2: U0RXD + GPIO0
+	 * 3: U0RXD + U0TXD
+	 */
+	{"dual_ant_configure", 53, 0},
+	/*
+	 * Firmware debugging output pin:
+	 * 0: None
+	 * 1: UART TX on GPIO2
+	 * 2: UART TX on U0TXD
+	 */
+	{"test_uart_configure", 54, 2},
+	/*
+	 * Whether to share crystal clock with BT (in sleep mode):
+	 * 0: no
+	 * 1: always on
+	 * 2: automatically on according to XPD_DCDC
+	 */
+	{"share_xtal", 55, 0},
+	/*
+	 * Allow chip to be woken up during sleep on pin:
+	 * 0: None
+	 * 1: XPD_DCDC
+	 * 2: GPIO0
+	 * 3: Both XPD_DCDC and GPIO0
+	 */
+	{"gpio_wake", 56, 0},
+	{"no_auto_sleep", 57, 0},
+	{"speed_suspend", 58, 0},
 	{"attr11", -1, -1},
 	{"attr12", -1, -1},
 	{"attr13", -1, -1},
 	{"attr14", -1, -1},
 	{"attr15", -1, -1},
 	//attr that is not send to target
-	{"ext_rst", -1, -1},
-	{"wakeup_gpio", -1, -1},
-	{"ate_test", -1, -1},
+	/*
+	 * Allow chip to be reset by GPIO pin:
+	 * 0: no
+	 * 1: yes
+	 */
+	{"ext_rst", -1, 0},
+	{"wakeup_gpio", -1, 12},
+	{"ate_test", -1, 0},
 	{"attr19", -1, -1},
 	{"attr20", -1, -1},
 	{"attr21", -1, -1},
 	{"attr22", -1, -1},
 	{"attr23", -1, -1},
-
 };
 
-int esp_atoi(char *str)
-{
-	int num = 0;
-	int ng_flag = 0;
-
-	if (*str == '-') {
-		str++;
-		ng_flag = 1;
-	}
-
-	while (*str != '\0') {
-		num = num * 10 + *str++ - '0';
-	}
-
-	return ng_flag ? 0 - num : num;
-}
-
-void show_esp_init_table(struct esp_init_table_elem *econf)
+static void show_esp_init_table(struct esp_init_table_elem *econf)
 {
 	int i;
 	for (i = 0; i < MAX_ATTR_NUM; i++)
@@ -79,120 +121,93 @@ void show_esp_init_table(struct esp_init_table_elem *econf)
 				esp_init_table[i].value);
 }
 
+/* update init config table */
+static int update_init_config_attr(const char *attr, int attr_len,
+				   const char *val, int val_len)
+{
+	char digits[4];
+	short value;
+	int i;
+
+	for (i = 0; i < sizeof(digits) - 1 && i < val_len; i++)
+		digits[i] = val[i];
+	digits[i] = 0;
+
+	if (kstrtou16(digits, 10, &value) < 0) {
+		esp_dbg(ESP_DBG_ERROR, "%s: invalid attribute value: %s",
+			__func__, digits);
+		return -1;
+	}
+
+	for (i = 0; i < MAX_ATTR_NUM; i++) {
+		if (!memcmp(esp_init_table[i].attr, attr, attr_len)) {
+			if (value < 0 || value > 255) {
+				esp_dbg(ESP_DBG_ERROR, "%s: attribute value for %s is out of range",
+					__func__, esp_init_table[i].attr);
+				return -1;
+			}
+			esp_init_table[i].value = value;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+/* export config table settings to SDIO driver */
+static void record_init_config(void)
+{
+	int i;
+
+	for (i = 0; i < MAX_ATTR_NUM; i++) {
+		if (esp_init_table[i].value < 0)
+			continue;
+
+		if (!strcmp(esp_init_table[i].attr, "share_xtal"))
+			sif_record_bt_config(esp_init_table[i].value);
+		else if (!strcmp(esp_init_table[i].attr, "ext_rst"))
+			sif_record_rst_config(esp_init_table[i].value);
+		else if (!strcmp(esp_init_table[i].attr, "wakeup_gpio"))
+			sif_record_wakeup_gpio_config(esp_init_table[i].value);
+		else if (!strcmp(esp_init_table[i].attr, "ate_test"))
+			sif_record_ate_config(esp_init_table[i].value);
+	}
+}
+
 int request_init_conf(void)
 {
+	char *attr, *str, *p;
+	int attr_len, str_len;
+	int ret = 0;
 
-	u8 *conf_buf;
-	u8 *pbuf;
-	int flag;
-	int str_len;
-	int length;
-	int ret;
-	int i;
-	char attr_name[CONF_ATTR_LEN];
-	char num_buf[CONF_VAL_LEN];
-	conf_buf = (u8 *) kmalloc(MAX_BUF_LEN, GFP_KERNEL);
-	if (conf_buf == NULL) {
-		esp_dbg(ESP_DBG_ERROR,
-			"%s: failed kmalloc memory for read init_data_conf",
-			__func__);
-		return -ENOMEM;
+	/* parse optional parameter in the form of key1=value,key2=value,.. */
+	attr = NULL;
+	attr_len = str_len = 0;
+	for (p = str = modparam_init_data_conf; p && *p; p++) {
+		if (*p == '=') {
+			attr = str;
+			attr_len = str_len;
+
+			str = p + 1;
+			str_len = 0;
+		} else if (*p == ',' || *p == ';') {
+			if (attr_len)
+				ret |= update_init_config_attr(attr, attr_len,
+							       str, str_len);
+
+			str = p + 1;
+			attr_len = str_len = 0;
+		} else
+			str_len++;
 	}
 
-	length = strlen(INIT_DATA_CONF_BUF);
-	strncpy(conf_buf, INIT_DATA_CONF_BUF, length);
-	conf_buf[length] = '\0';
+	if (attr_len && str != attr)
+		ret |= update_init_config_attr(attr, attr_len, str, str_len);
 
-	flag = 0;
-	str_len = 0;
-	for (pbuf = conf_buf; *pbuf != '$' && *pbuf != '\n'; pbuf++) {
-		if (*pbuf == '=') {
-			flag = 1;
-			*(attr_name + str_len) = '\0';
-			str_len = 0;
-			continue;
-		}
+	/* show_esp_init_table(esp_init_table); */
 
-		if (*pbuf == ';') {
-			int value;
-			flag = 0;
-			*(num_buf + str_len) = '\0';
-			if ((value = esp_atoi(num_buf)) > 255 || value < 0) {
-				esp_dbg(ESP_DBG_ERROR,
-					"%s: value is too big",
-					__FUNCTION__);
-				goto failed;
-			}
+	record_init_config();
 
-			for (i = 0; i < MAX_ATTR_NUM; i++) {
-				if (strcmp
-				    (esp_init_table[i].attr,
-				     attr_name) == 0) {
-					esp_dbg(ESP_DBG_TRACE, "%s: attr_name[%s]", __FUNCTION__, attr_name);	/* add by th */
-					esp_init_table[i].value = value;
-				}
-
-				if (esp_init_table[i].value < 0)
-					continue;
-
-				if (strcmp
-				    (esp_init_table[i].attr,
-				     "share_xtal") == 0) {
-					sif_record_bt_config(esp_init_table
-							     [i].value);
-				}
-
-				if (strcmp
-				    (esp_init_table[i].attr,
-				     "ext_rst") == 0) {
-					sif_record_rst_config
-					    (esp_init_table[i].value);
-				}
-
-				if (strcmp
-				    (esp_init_table[i].attr,
-				     "wakeup_gpio") == 0) {
-					sif_record_wakeup_gpio_config
-					    (esp_init_table[i].value);
-				}
-
-				if (strcmp
-				    (esp_init_table[i].attr,
-				     "ate_test") == 0) {
-					sif_record_ate_config
-					    (esp_init_table[i].value);
-				}
-
-			}
-			str_len = 0;
-			continue;
-		}
-
-		if (flag == 0) {
-			*(attr_name + str_len) = *pbuf;
-			if (++str_len > CONF_ATTR_LEN) {
-				esp_dbg(ESP_DBG_ERROR,
-					"%s: attr len is too long",
-					__FUNCTION__);
-				goto failed;
-			}
-		} else {
-			*(num_buf + str_len) = *pbuf;
-			if (++str_len > CONF_VAL_LEN) {
-				esp_dbg(ESP_DBG_ERROR,
-					"%s: value len is too long",
-					__FUNCTION__);
-				goto failed;
-			}
-		}
-	}
-
-	//show_esp_init_table(esp_init_table);
-
-	ret = 0;
-      failed:
-	if (conf_buf)
-		kfree(conf_buf);
 	return ret;
 }
 
