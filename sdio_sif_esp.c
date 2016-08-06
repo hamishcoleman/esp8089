@@ -763,42 +763,11 @@ static struct sdio_driver esp_sdio_driver = {
                 .drv = { .pm = &esp_sdio_pm_ops, },
 };
 
-static int esp_sdio_dummy_probe(struct sdio_func *func, const struct sdio_device_id *id)
-{
-        esp_dbg(ESP_DBG_ERROR, "%s enter\n", __func__);
-
-        up(&esp_powerup_sem);
-        
-        return 0;
-}
-
-static void esp_sdio_dummy_remove(struct sdio_func *func) 
-{
-        return;
-}
-
-static struct sdio_driver esp_sdio_dummy_driver = {
-                .name = "eagle_sdio_dummy",
-                .id_table = esp_sdio_devices,
-                .probe = esp_sdio_dummy_probe,
-                .remove = esp_sdio_dummy_remove,
-};
-
 static int /*__init*/ esp_sdio_init(void) 
 {
 #define ESP_WAIT_UP_TIME_MS 11000
-        int err;
-        u64 ver;
-        int retry = 3;
-        bool powerup = false;
         int edf_ret = 0;
 
-        esp_dbg(ESP_DBG_TRACE, "%s \n", __func__);
-
-#ifdef DRIVER_VER
-        ver = DRIVER_VER;
-        esp_dbg(ESP_SHOW, "\n***** EAGLE DRIVER VER:%llx*****\n\n", ver);
-#endif
         edf_ret = esp_debugfs_init();
 
 	request_init_conf();
@@ -806,51 +775,6 @@ static int /*__init*/ esp_sdio_init(void)
         esp_wakelock_init();
         esp_wake_lock();
 
-        do {
-                sema_init(&esp_powerup_sem, 0);
-
-                sif_platform_target_poweron();
-
-                sif_platform_rescan_card(1);
-
-                err = sdio_register_driver(&esp_sdio_dummy_driver);
-                if (err) {
-                        esp_dbg(ESP_DBG_ERROR, "eagle sdio driver registration failed, error code: %d\n", err);
-                        goto _fail;
-                }
-
-                if (down_timeout(&esp_powerup_sem,
-                                 msecs_to_jiffies(ESP_WAIT_UP_TIME_MS)) == 0) 
-		{
-
-                        powerup = true;
-			msleep(200);
-                        break;
-                }
-
-                esp_dbg(ESP_SHOW, "%s ------ RETRY ------ \n", __func__);
-
-		sif_record_retry_config();
-
-                sdio_unregister_driver(&esp_sdio_dummy_driver);
-
-                sif_platform_rescan_card(0);
-                
-                sif_platform_target_poweroff();
-                
-        } while (retry--);
-
-        if (!powerup) {
-                esp_dbg(ESP_DBG_ERROR, "eagle sdio can not power up!\n");
-
-                err = -ENODEV;
-                goto _fail;
-        }
-
-        esp_dbg(ESP_SHOW, "%s power up OK\n", __func__);
-
-        sdio_unregister_driver(&esp_sdio_dummy_driver);
-        
         sif_sdio_state = ESP_SDIO_STATE_FIRST_INIT;
 	sema_init(&esp_powerup_sem, 0);
 
@@ -877,13 +801,7 @@ static int /*__init*/ esp_sdio_init(void)
 
         esp_register_early_suspend();
 	esp_wake_unlock();
-        return err;
-
-_fail:
-        esp_wake_unlock();
-        esp_wakelock_destroy();
-
-        return err;
+        return 0;
 }
 
 static void  /*__exit*/ esp_sdio_exit(void) 
@@ -897,10 +815,6 @@ static void  /*__exit*/ esp_sdio_exit(void)
 	sdio_unregister_driver(&esp_sdio_driver);
 	
 	sif_platform_rescan_card(0);
-
-#ifndef FPGA_DEBUG
-	sif_platform_target_poweroff();
-#endif /* !FPGA_DEBUG */
 
         esp_wakelock_destroy();
 }
