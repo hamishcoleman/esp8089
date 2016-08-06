@@ -41,9 +41,6 @@ static void  /*__exit*/ esp_sdio_exit(void);
 //unsigned int esp_msg_level = 0;
 unsigned int esp_msg_level = ESP_DBG_ERROR | ESP_SHOW;
 
-static struct semaphore esp_powerup_sem;
-
-static enum esp_sdio_state sif_sdio_state;
 struct esp_sdio_ctrl *sif_sctrl = NULL;
 
 #ifdef ESP_ANDROID_LOGGER
@@ -489,14 +486,14 @@ static void esp_sdio_remove(struct sdio_func *func);
 static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id) 
 {
         int err = 0;
-        struct esp_pub *epub;
+        struct esp_pub *epub = NULL;
         struct esp_sdio_ctrl *sctrl;
 
         esp_dbg(ESP_DBG_TRACE,
                         "sdio_func_num: 0x%X, vendor id: 0x%X, dev id: 0x%X, block size: 0x%X/0x%X\n",
                         func->num, func->vendor, func->device, func->max_blksize,
                         func->cur_blksize);
-	if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT){
+	if (sif_sctrl == NULL) {
 		sctrl = kzalloc(sizeof(struct esp_sdio_ctrl), GFP_KERNEL);
 
 		if (sctrl == NULL) {
@@ -521,6 +518,7 @@ static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *i
                 	goto _err_dma;
         	}
         	epub->sif = (void *)sctrl;
+		epub->sdio_state = ESP_SDIO_STATE_FIRST_INIT;
         	sctrl->epub = epub;
 
 #ifdef USE_EXT_GPIO
@@ -537,11 +535,10 @@ static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *i
 		sctrl = sif_sctrl;
 		sif_sctrl = NULL;
 		epub = sctrl->epub;
+		epub->sdio_state = ESP_SDIO_STATE_SECOND_INIT;
 		SET_IEEE80211_DEV(epub->hw, &func->dev);
 		epub->dev = &func->dev;
 	}
-
-        epub->sdio_state = sif_sdio_state;
 
         sctrl->func = func;
         sdio_set_drvdata(func, sctrl);
@@ -556,7 +553,7 @@ static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *i
         esp_dbg(ESP_DBG_TRACE, " %s >> power_on err %d \n", __func__, err);
 
         if (err){
-                if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT)
+                if(epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT)
                 	goto _err_ext_gpio;
 		else
 			goto _err_second_init;
@@ -571,7 +568,7 @@ static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *i
                 esp_dbg(ESP_DBG_ERROR, "Set sdio block size %d failed: %d)\n",
                                 sctrl->slc_blk_sz, err);
                 sdio_release_host(func);
-                if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT)
+                if(epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT)
                 	goto _err_off;
 		else
 			goto _err_second_init;
@@ -588,19 +585,18 @@ static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *i
 
         if (err) {
                 esp_dbg(ESP_DBG_ERROR, "esp_init_all failed: %d\n", err);
-                if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT){
+                if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
 			err = 0;
 			goto _err_first_init;
 		}
-                if(sif_sdio_state == ESP_SDIO_STATE_SECOND_INIT)
+                if (epub->sdio_state == ESP_SDIO_STATE_SECOND_INIT)
 			goto _err_second_init;
         }
 
         esp_dbg(ESP_DBG_TRACE, " %s return  %d\n", __func__, err);
-	if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT){
+	if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
 		esp_dbg(ESP_DBG_ERROR, "first normal exit\n");
-		sif_sdio_state = ESP_SDIO_STATE_FIRST_NORMAL_EXIT;
-		up(&esp_powerup_sem);
+		epub->sdio_state = ESP_SDIO_STATE_FIRST_NORMAL_EXIT;
 	}
 
         return err;
@@ -619,14 +615,13 @@ _err_dma:
 _err_last:
         kfree(sctrl);
 _err_first_init:
-	if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT){
+	if (epub && epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
 		esp_dbg(ESP_DBG_ERROR, "first error exit\n");
-		sif_sdio_state = ESP_SDIO_STATE_FIRST_ERROR_EXIT;
-		up(&esp_powerup_sem);
+		epub->sdio_state = ESP_SDIO_STATE_FIRST_ERROR_EXIT;
 	}
         return err;
 _err_second_init:
-	sif_sdio_state = ESP_SDIO_STATE_SECOND_ERROR_EXIT;
+	epub->sdio_state = ESP_SDIO_STATE_SECOND_ERROR_EXIT;
 	esp_sdio_remove(func);
 	return err;
 }
@@ -649,8 +644,7 @@ static void esp_sdio_remove(struct sdio_func *func)
                         esp_dbg(ESP_DBG_ERROR, "%s epub null\n", __func__);
                         break;
                 }
-		sctrl->epub->sdio_state = sif_sdio_state;
-		if(sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT){
+		if (sctrl->epub->sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
                 	if (sctrl->epub->sip) {
                         	sip_detach(sctrl->epub->sip);
                         	sctrl->epub->sip = NULL;
@@ -674,7 +668,7 @@ static void esp_sdio_remove(struct sdio_func *func)
 #ifdef TEST_MODE
                 test_exit_netlink();
 #endif /* TEST_MODE */
-		if(sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT){
+		if (sctrl->epub->sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
                 	esp_pub_dealloc_mac80211(sctrl->epub);
                 	esp_dbg(ESP_DBG_TRACE, "%s dealloc mac80211 \n", __func__);
 			
@@ -765,39 +759,13 @@ static struct sdio_driver esp_sdio_driver = {
 
 static int /*__init*/ esp_sdio_init(void) 
 {
-#define ESP_WAIT_UP_TIME_MS 11000
-        int edf_ret = 0;
-
-        edf_ret = esp_debugfs_init();
-
+        esp_debugfs_init();
 	request_init_conf();
 
         esp_wakelock_init();
         esp_wake_lock();
 
-        sif_sdio_state = ESP_SDIO_STATE_FIRST_INIT;
-	sema_init(&esp_powerup_sem, 0);
-
         sdio_register_driver(&esp_sdio_driver);
-
-        if ((down_timeout(&esp_powerup_sem,
-                                 msecs_to_jiffies(ESP_WAIT_UP_TIME_MS)) == 0 ) && sif_get_ate_config() == 0) {
-		if(sif_sdio_state == ESP_SDIO_STATE_FIRST_NORMAL_EXIT){
-                	sdio_unregister_driver(&esp_sdio_driver);
-
-                	sif_platform_rescan_card(0);
-
-			msleep(100);
-                
-			sif_platform_rescan_card(1);
-
-			sif_sdio_state = ESP_SDIO_STATE_SECOND_INIT;
-        	
-			sdio_register_driver(&esp_sdio_driver);
-		}
-                
-        }
-
 
         esp_register_early_suspend();
 	esp_wake_unlock();
@@ -813,8 +781,6 @@ static void  /*__exit*/ esp_sdio_exit(void)
         esp_unregister_early_suspend();
 
 	sdio_unregister_driver(&esp_sdio_driver);
-	
-	sif_platform_rescan_card(0);
 
         esp_wakelock_destroy();
 }
