@@ -786,27 +786,14 @@ static int /*__init*/ esp_sdio_init(void)
 	esp_debugfs_init();
 	request_init_conf();
 
-	esp_wakelock_init();
-	esp_wake_lock();
-
 	sdio_register_driver(&esp_sdio_driver);
-
-	esp_register_early_suspend();
-	esp_wake_unlock();
 	return 0;
 }
 
 static void /*__exit*/ esp_sdio_exit(void)
 {
-	esp_dbg(ESP_SHOW, "%s \n", __func__);
-
-	esp_debugfs_exit();
-
-	esp_unregister_early_suspend();
-
 	sdio_unregister_driver(&esp_sdio_driver);
-
-	esp_wakelock_destroy();
+	esp_debugfs_exit();
 }
 
 MODULE_AUTHOR("Espressif System");
