@@ -658,6 +658,7 @@ static int esp_sdio_probe(struct sdio_func *func,
 static void esp_sdio_remove(struct sdio_func *func)
 {
 	struct esp_sdio_ctrl *sctrl = NULL;
+	struct esp_pub *epub = NULL;
 
 	esp_dbg(ESP_SHOW, "%s enter\n", __func__);
 
@@ -669,15 +670,16 @@ static void esp_sdio_remove(struct sdio_func *func)
 	}
 
 	do {
-		if (sctrl->epub == NULL) {
+		epub = sctrl->epub;
+		if (epub == NULL) {
 			esp_dbg(ESP_DBG_ERROR, "%s epub null\n", __func__);
 			break;
 		}
-		sctrl->epub->sdio_state = sif_sdio_state;
+		epub->sdio_state = sif_sdio_state;
 		if (sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
-			if (sctrl->epub->sip) {
-				sip_detach(sctrl->epub->sip);
-				sctrl->epub->sip = NULL;
+			if (epub->sip) {
+				sip_detach(epub->sip);
+				epub->sip = NULL;
 				esp_dbg(ESP_DBG_TRACE,
 					"%s sip detached \n", __func__);
 			}
@@ -686,13 +688,13 @@ static void esp_sdio_remove(struct sdio_func *func)
 				ext_gpio_deinit();
 #endif
 		} else {
-			//sif_disable_target_interrupt(sctrl->epub);
-			atomic_set(&sctrl->epub->sip->state, SIP_STOP);
-			sif_disable_irq(sctrl->epub);
+			//sif_disable_target_interrupt(epub);
+			atomic_set(&epub->sip->state, SIP_STOP);
+			sif_disable_irq(epub);
 		}
 
 		if (sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
-			esp_pub_dealloc_mac80211(sctrl->epub);
+			esp_pub_dealloc_mac80211(epub);
 			esp_dbg(ESP_DBG_TRACE, "%s dealloc mac80211 \n",
 				__func__);
 
