@@ -31,6 +31,25 @@
 #include "esp_ext.h"
 #endif				/* USE_EXT_GPIO */
 
+/*
+ * HdG: Note:
+ * 1) MMC_HAS_FORCE_DETECT_CHANGE is a hack which is set by my sunxi-wip
+ *    tree. FIXME replace with a version check once mmc_force_detect_change()
+ *    is added to the mainline kernel.
+ * 2) This version does NOT implement keep_power, the dts must mark the
+ *    regulators as regulator-always-on and not use mmc-pwrseq for this stub
+ *    to work.
+ */
+#ifndef MMC_HAS_FORCE_DETECT_CHANGE
+void mmc_force_detect_change(struct mmc_host *host, unsigned long delay,
+			     bool keep_power)
+{
+	host->caps &= ~MMC_CAP_NONREMOVABLE;
+	host->caps |= MMC_CAP_NEEDS_POLL;
+	mmc_detect_change(host, delay);
+}
+#endif
+
 static int /*__init*/ esp_sdio_init(void);
 static void /*__exit*/ esp_sdio_exit(void);
 
@@ -509,6 +528,7 @@ static int esp_sdio_probe(struct sdio_func *func,
 	int err = 0;
 	struct esp_pub *epub = NULL;
 	struct esp_sdio_ctrl *sctrl;
+	struct mmc_host *host = func->card->host;
 
 	esp_dbg(ESP_DBG_TRACE,
 		"sdio_func_num: 0x%X, vendor id: 0x%X, dev id: 0x%X, block size: 0x%X/0x%X\n",
@@ -621,6 +641,8 @@ static int esp_sdio_probe(struct sdio_func *func,
 	if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
 		esp_dbg(ESP_DBG_ERROR, "first normal exit\n");
 		epub->sdio_state = ESP_SDIO_STATE_FIRST_NORMAL_EXIT;
+		/* Rescan the esp8089 after loading the initial firmware */
+		mmc_force_detect_change(host, msecs_to_jiffies(100), true);
 	}
 
 	return err;
