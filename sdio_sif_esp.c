@@ -71,8 +71,6 @@ static int esdio_power_on(struct esp_sdio_ctrl *sctrl);
 
 void sif_set_clock(struct sdio_func *func, int clk);
 
-#include "sdio_stub.c"
-
 void sif_lock_bus(struct esp_pub *epub)
 {
         EPUB_FUNC_CHECK(epub, _exit);
@@ -120,7 +118,6 @@ void sdio_io_writeb(struct esp_pub *epub, u8 value, int addr, int *res)
         	sdio_f0_writeb(func, value, addr, res);
 	else
 		sdio_writeb(func, value, addr, res);
-	sif_platform_check_r1_ready(epub);
 }
 
 int sif_io_raw(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
@@ -167,7 +164,6 @@ int sif_io_raw(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
                 else if (flag & SIF_INC_ADDR) {
                         err = sdio_memcpy_toio(func, addr, ibuf, len);
                 }
-                sif_platform_check_r1_ready(epub);
         } else if (flag & SIF_FROM_DEVICE) {
 
                 if (flag & SIF_FIXED_ADDR)
@@ -232,7 +228,6 @@ int sif_io_sync(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
                 else if (flag & SIF_INC_ADDR) {
                         err = sdio_memcpy_toio(func, addr, ibuf, len);
                 }
-                sif_platform_check_r1_ready(epub);
                 sdio_release_host(func);
         } else if (flag & SIF_FROM_DEVICE) {
 
@@ -810,4 +805,7 @@ static void  /*__exit*/ esp_sdio_exit(void)
 MODULE_AUTHOR("Espressif System");
 MODULE_DESCRIPTION("Driver for SDIO interconnected eagle low-power WLAN devices");
 MODULE_LICENSE("GPL");
+
+module_init(esp_sdio_init);
+module_exit(esp_sdio_exit);
 #endif /* ESP_USE_SDIO */

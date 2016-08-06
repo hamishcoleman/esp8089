@@ -196,7 +196,6 @@ int sif_lldesc_read_sync(struct esp_pub *epub, u8 *buf, u32 len);
 int sif_lldesc_write_sync(struct esp_pub *epub, u8 *buf, u32 len);
 int sif_lldesc_read_raw(struct esp_pub *epub, u8 *buf, u32 len, bool noround);
 int sif_lldesc_write_raw(struct esp_pub *epub, u8 *buf, u32 len);
-void sif_platform_check_r1_ready(struct esp_pub *epub);
 #endif 
 
 #ifdef ESP_USE_SPI
@@ -252,13 +251,6 @@ struct slc_host_regs * sif_get_regs(struct esp_pub *epub);
 void sif_lock_bus(struct esp_pub *epub);
 void sif_unlock_bus(struct esp_pub *epub);
 
-void sif_platform_target_poweroff(void);
-void sif_platform_target_poweron(void);
-void sif_platform_target_speed(int high_speed);
-
-void sif_platform_reset_target(void);
-void sif_platform_rescan_card(unsigned insert);
-
 int sif_interrupt_target(struct esp_pub *epub, u8 index);
 #ifdef USE_EXT_GPIO
 int sif_config_gpio_mode(struct esp_pub *epub, u8 gpio_num, u8 gpio_mode);
@@ -279,11 +271,6 @@ void sif_record_retry_config(void);
 int sif_get_retry_config(void);
 void sif_record_wakeup_gpio_config(int value);
 int sif_get_wakeup_gpio_config(void);
-
-#ifdef ESP_ACK_INTERRUPT
-//extern void sif_platform_ack_interrupt(struct mmc_host *mmc);
-extern void sif_platform_ack_interrupt(struct esp_pub *epub);
-#endif //ESP_ACK_INTERRUPT
 
 #define sif_reg_read_sync(epub, addr, buf, len) sif_io_sync((epub), (addr), (buf), (len), SIF_FROM_DEVICE | SIF_BYTE_BASIS | SIF_INC_ADDR)
 
