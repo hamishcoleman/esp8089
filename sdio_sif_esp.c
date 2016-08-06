@@ -456,7 +456,6 @@ void sif_enable_irq(struct esp_pub *epub)
 
 void sif_disable_irq(struct esp_pub *epub)
 {
-	int err;
 	struct esp_sdio_ctrl *sctrl = (struct esp_sdio_ctrl *) epub->sif;
 	int i = 0;
 
@@ -476,12 +475,8 @@ void sif_disable_irq(struct esp_pub *epub)
 		}
 	}
 
-	err = sdio_release_irq(sctrl->func);
-
-	if (err) {
-		esp_dbg(ESP_DBG_ERROR, "%s release irq failed\n",
-			__func__);
-	}
+	/* Ignore errors, we don't always use an irq. */
+	sdio_release_irq(sctrl->func);
 
 	atomic_set(&sctrl->irq_installed, 0);
 
@@ -634,7 +629,7 @@ static int esp_sdio_probe(struct sdio_func *func,
 
 	esp_dbg(ESP_DBG_TRACE, " %s return  %d\n", __func__, err);
 	if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
-		esp_dbg(ESP_DBG_ERROR, "first normal exit\n");
+		esp_dbg(ESP_DBG_TRACE, "first normal exit\n");
 		epub->sdio_state = ESP_SDIO_STATE_FIRST_NORMAL_EXIT;
 		/* Rescan the esp8089 after loading the initial firmware */
 		mmc_force_detect_change(host, msecs_to_jiffies(100), true);
@@ -672,7 +667,7 @@ static void esp_sdio_remove(struct sdio_func *func)
 	struct esp_sdio_ctrl *sctrl = NULL;
 	struct esp_pub *epub = NULL;
 
-	esp_dbg(ESP_SHOW, "%s enter\n", __func__);
+	esp_dbg(ESP_DBG_TRACE, "%s enter\n", __func__);
 
 	sctrl = sdio_get_drvdata(func);
 

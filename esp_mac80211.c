@@ -191,22 +191,22 @@ static int esp_op_add_interface(struct ieee80211_hw *hw,
 	case NL80211_IFTYPE_STATION:
 		//if (svif.index == 1)
 		//      vif->type = NL80211_IFTYPE_UNSPECIFIED;
-		ESP_IEEE80211_DBG(ESP_SHOW, "%s STA \n", __func__);
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s STA \n", __func__);
 		svif.op_mode = 0;
 		svif.is_p2p = 0;
 		break;
 	case NL80211_IFTYPE_AP:
-		ESP_IEEE80211_DBG(ESP_SHOW, "%s AP \n", __func__);
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s AP \n", __func__);
 		svif.op_mode = 1;
 		svif.is_p2p = 0;
 		break;
 	case NL80211_IFTYPE_P2P_CLIENT:
-		ESP_IEEE80211_DBG(ESP_SHOW, "%s P2P_CLIENT \n", __func__);
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s P2P_CLIENT \n", __func__);
 		svif.op_mode = 0;
 		svif.is_p2p = 1;
 		break;
 	case NL80211_IFTYPE_P2P_GO:
-		ESP_IEEE80211_DBG(ESP_SHOW, "%s P2P_GO \n", __func__);
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s P2P_GO \n", __func__);
 		svif.op_mode = 1;
 		svif.is_p2p = 1;
 		break;
@@ -238,12 +238,12 @@ static int esp_op_change_interface(struct ieee80211_hw *hw,
 			  __func__, new_type);
 
 	if (new_type == NL80211_IFTYPE_AP) {
-		ESP_IEEE80211_DBG(ESP_SHOW, "%s enter,change to AP \n",
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter,change to AP \n",
 				  __func__);
 	}
 
 	if (vif->type != new_type) {
-		ESP_IEEE80211_DBG(ESP_SHOW, "%s type from %d to %d\n",
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s type from %d to %d\n",
 				  __func__, vif->type, new_type);
 	}
 
@@ -398,7 +398,7 @@ static void drv_handle_beacon(unsigned long data)
 	tim_reach = beacon_tim_alter(beacon);
 
 	if (beacon && !(dbgcnt++ % 600)) {
-		ESP_IEEE80211_DBG(ESP_SHOW, " beacon length:%d,fc:0x%x\n",
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, " beacon length:%d,fc:0x%x\n",
 				  beacon->len,
 				  ((struct ieee80211_mgmt *) (beacon->
 							      data))->
@@ -1220,7 +1220,7 @@ static int esp_op_ampdu_action(struct ieee80211_hw *hw,
 		//if (vif->p2p || vif->type != NL80211_IFTYPE_STATION)
 		//      return ret;
 
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE,
 				  "%s TX START, addr:%pM,tid:%u,state:%d\n",
 				  __func__, sta->addr, tid,
 				  tid_info->state);
@@ -1234,7 +1234,7 @@ static int esp_op_ampdu_action(struct ieee80211_hw *hw,
 		ret = 0;
 		break;
 	case IEEE80211_AMPDU_TX_STOP_CONT:
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE,
 				  "%s TX STOP, addr:%pM,tid:%u,state:%d\n",
 				  __func__, sta->addr, tid,
 				  tid_info->state);
@@ -1260,7 +1260,7 @@ static int esp_op_ampdu_action(struct ieee80211_hw *hw,
 					  sta->addr, tid, node->ifidx, 0);
 		break;
 	case IEEE80211_AMPDU_TX_OPERATIONAL:
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE,
 				  "%s TX OPERATION, addr:%pM,tid:%u,state:%d\n",
 				  __func__, sta->addr, tid,
 				  tid_info->state);
@@ -1294,7 +1294,7 @@ static int esp_op_ampdu_action(struct ieee80211_hw *hw,
 		    || (vif->type != NL80211_IFTYPE_STATION && false)
 		    )
 			return ret;
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR,
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE,
 				  "%s RX START %pM tid %u %u\n", __func__,
 				  sta->addr, tid, *ssn);
 		ret =
@@ -1302,7 +1302,7 @@ static int esp_op_ampdu_action(struct ieee80211_hw *hw,
 					  sta->addr, tid, *ssn, 64);
 		break;
 	case IEEE80211_AMPDU_RX_STOP:
-		ESP_IEEE80211_DBG(ESP_DBG_ERROR, "%s RX STOP %pM tid %u\n",
+		ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s RX STOP %pM tid %u\n",
 				  __func__, sta->addr, tid);
 		ret =
 		    sip_send_ampdu_action(epub, SIP_AMPDU_RX_STOP,
