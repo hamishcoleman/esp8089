@@ -218,13 +218,6 @@ void esp_rocdone_process(struct ieee80211_hw *hw, struct sip_evt_roc *report);
 
 void esp_ps_config(struct esp_pub *epub, struct esp_ps *ps, bool on);
 
-
-void esp_register_early_suspend(void);
-void esp_unregister_early_suspend(void);
-void esp_wakelock_init(void);
-void esp_wakelock_destroy(void);
-void esp_wake_lock(void);
-void esp_wake_unlock(void);
 struct esp_node * esp_get_node_by_addr(struct esp_pub * epub, const u8 *addr);
 struct esp_node * esp_get_node_by_index(struct esp_pub * epub, u8 index);
 int esp_get_empty_rxampdu(struct esp_pub * epub, const u8 *addr, u8 tid);
