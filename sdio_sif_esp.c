@@ -525,6 +525,8 @@ static int esp_sdio_probe(struct sdio_func *func,
 		func->num, func->vendor, func->device, func->max_blksize,
 		func->cur_blksize);
 	if (sif_sctrl == NULL) {
+		request_init_conf(&func->dev);
+
 		sctrl = kzalloc(sizeof(struct esp_sdio_ctrl), GFP_KERNEL);
 
 		if (sctrl == NULL) {
@@ -779,7 +781,6 @@ static struct sdio_driver esp_sdio_driver = {
 static int /*__init*/ esp_sdio_init(void)
 {
 	esp_debugfs_init();
-	request_init_conf();
 
 	sdio_register_driver(&esp_sdio_driver);
 	return 0;
