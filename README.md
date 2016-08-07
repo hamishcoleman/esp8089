@@ -19,3 +19,13 @@ Using:
 Must load mac80211.ko first if not baked in.
 
  sudo modprobe esp8089.ko
+
+If you get a wlan interface, but scanning shows no networks try using:
+
+ sudo modprobe esp8089.ko config=crystal_26M_en=1
+
+or:
+
+ sudo modprobe esp8089.ko config=crystal_26M_en=2
+
+To load the module.
