@@ -110,6 +110,25 @@ struct esp_init_table_elem esp_init_table[MAX_ATTR_NUM] = {
 };
 
 /* update init config table */
+static int set_init_config_attr(const char *attr, int attr_len, short value)
+{
+	int i;
+
+	for (i = 0; i < MAX_ATTR_NUM; i++) {
+		if (!memcmp(esp_init_table[i].attr, attr, attr_len)) {
+			if (value < 0 || value > 255) {
+				esp_dbg(ESP_DBG_ERROR, "%s: attribute value for %s is out of range",
+					__func__, esp_init_table[i].attr);
+				return -1;
+			}
+			esp_init_table[i].value = value;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
 static int update_init_config_attr(const char *attr, int attr_len,
 				   const char *val, int val_len)
 {
@@ -127,19 +146,7 @@ static int update_init_config_attr(const char *attr, int attr_len,
 		return -1;
 	}
 
-	for (i = 0; i < MAX_ATTR_NUM; i++) {
-		if (!memcmp(esp_init_table[i].attr, attr, attr_len)) {
-			if (value < 0 || value > 255) {
-				esp_dbg(ESP_DBG_ERROR, "%s: attribute value for %s is out of range",
-					__func__, esp_init_table[i].attr);
-				return -1;
-			}
-			esp_init_table[i].value = value;
-			return 0;
-		}
-	}
-
-	return -1;
+	return set_init_config_attr(attr, attr_len, value);
 }
 
 /* export config table settings to SDIO driver */
