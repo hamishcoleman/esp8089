@@ -698,7 +698,17 @@ void hw_scan_done(struct esp_pub *epub, bool aborted)
 
 	ESSERT(epub->wl.scan_req != NULL);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
+	{
+		struct cfg80211_scan_info info = {
+			.aborted = aborted,
+		};
+
+		ieee80211_scan_completed(epub->hw, &info);
+	}
+#else
 	ieee80211_scan_completed(epub->hw, aborted);
+#endif
 	if (test_and_clear_bit(ESP_WL_FLAG_STOP_TXQ, &epub->wl.flags)) {
 		sip_trigger_txq_process(epub->sip);
 	}
@@ -722,7 +732,17 @@ static void hw_scan_timeout_report(struct work_struct *work)
 		epub->wl.scan_req = NULL;
 	}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
+	{
+		struct cfg80211_scan_info info = {
+			.aborted = aborted,
+		};
+
+		ieee80211_scan_completed(epub->hw, &info);
+	}
+#else
 	ieee80211_scan_completed(epub->hw, aborted);
+#endif
 }
 
 static int esp_op_set_rts_threshold(struct ieee80211_hw *hw, u32 value)
