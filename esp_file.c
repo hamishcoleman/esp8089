@@ -178,7 +178,7 @@ int request_init_conf(struct device *dev)
 	u32 val;
 
 	/* Check for any parameters passed through devicetree (or acpi) */
-	if (device_property_read_u32(dev, "esp,crystal_26M_en", &val) == 0)
+	if (device_property_read_u32(dev, "esp,crystal-26M-en", &val) == 0)
 		set_init_config_attr("crystal_26M_en", strlen("crystal_26M_en"),
 				     val);
 
