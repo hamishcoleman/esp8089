@@ -31,6 +31,25 @@
 #include "esp_ext.h"
 #endif				/* USE_EXT_GPIO */
 
+/*
+ * HdG: Note:
+ * 1) MMC_HAS_FORCE_DETECT_CHANGE is a hack which is set by my sunxi-wip
+ *    tree. FIXME replace with a version check once mmc_force_detect_change()
+ *    is added to the mainline kernel.
+ * 2) This version does NOT implement keep_power, the dts must mark the
+ *    regulators as regulator-always-on and not use mmc-pwrseq for this stub
+ *    to work.
+ */
+#ifndef MMC_HAS_FORCE_DETECT_CHANGE
+void mmc_force_detect_change(struct mmc_host *host, unsigned long delay,
+			     bool keep_power)
+{
+	host->caps &= ~MMC_CAP_NONREMOVABLE;
+	host->caps |= MMC_CAP_NEEDS_POLL;
+	mmc_detect_change(host, delay);
+}
+#endif
+
 static int /*__init*/ esp_sdio_init(void);
 static void /*__exit*/ esp_sdio_exit(void);
 
@@ -40,9 +59,6 @@ static void /*__exit*/ esp_sdio_exit(void);
 //unsigned int esp_msg_level = 0;
 unsigned int esp_msg_level = ESP_DBG_ERROR | ESP_SHOW;
 
-static struct semaphore esp_powerup_sem;
-
-static enum esp_sdio_state sif_sdio_state;
 struct esp_sdio_ctrl *sif_sctrl = NULL;
 
 #ifdef ESP_ANDROID_LOGGER
@@ -53,8 +69,6 @@ static int esdio_power_off(struct esp_sdio_ctrl *sctrl);
 static int esdio_power_on(struct esp_sdio_ctrl *sctrl);
 
 void sif_set_clock(struct sdio_func *func, int clk);
-
-#include "sdio_stub.c"
 
 void sif_lock_bus(struct esp_pub *epub)
 {
@@ -103,7 +117,6 @@ void sdio_io_writeb(struct esp_pub *epub, u8 value, int addr, int *res)
 		sdio_f0_writeb(func, value, addr, res);
 	else
 		sdio_writeb(func, value, addr, res);
-	sif_platform_check_r1_ready(epub);
 }
 
 int sif_io_raw(struct esp_pub *epub, u32 addr, u8 * buf, u32 len, u32 flag)
@@ -151,7 +164,6 @@ int sif_io_raw(struct esp_pub *epub, u32 addr, u8 * buf, u32 len, u32 flag)
 		else if (flag & SIF_INC_ADDR) {
 			err = sdio_memcpy_toio(func, addr, ibuf, len);
 		}
-		sif_platform_check_r1_ready(epub);
 	} else if (flag & SIF_FROM_DEVICE) {
 
 		if (flag & SIF_FIXED_ADDR)
@@ -219,7 +231,6 @@ int sif_io_sync(struct esp_pub *epub, u32 addr, u8 * buf, u32 len,
 		else if (flag & SIF_INC_ADDR) {
 			err = sdio_memcpy_toio(func, addr, ibuf, len);
 		}
-		sif_platform_check_r1_ready(epub);
 		sdio_release_host(func);
 	} else if (flag & SIF_FROM_DEVICE) {
 
@@ -445,7 +456,6 @@ void sif_enable_irq(struct esp_pub *epub)
 
 void sif_disable_irq(struct esp_pub *epub)
 {
-	int err;
 	struct esp_sdio_ctrl *sctrl = (struct esp_sdio_ctrl *) epub->sif;
 	int i = 0;
 
@@ -465,12 +475,8 @@ void sif_disable_irq(struct esp_pub *epub)
 		}
 	}
 
-	err = sdio_release_irq(sctrl->func);
-
-	if (err) {
-		esp_dbg(ESP_DBG_ERROR, "%s release irq failed\n",
-			__func__);
-	}
+	/* Ignore errors, we don't always use an irq. */
+	sdio_release_irq(sctrl->func);
 
 	atomic_set(&sctrl->irq_installed, 0);
 
@@ -510,14 +516,17 @@ static int esp_sdio_probe(struct sdio_func *func,
 			  const struct sdio_device_id *id)
 {
 	int err = 0;
-	struct esp_pub *epub;
+	struct esp_pub *epub = NULL;
 	struct esp_sdio_ctrl *sctrl;
+	struct mmc_host *host = func->card->host;
 
 	esp_dbg(ESP_DBG_TRACE,
 		"sdio_func_num: 0x%X, vendor id: 0x%X, dev id: 0x%X, block size: 0x%X/0x%X\n",
 		func->num, func->vendor, func->device, func->max_blksize,
 		func->cur_blksize);
-	if (sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
+	if (sif_sctrl == NULL) {
+		request_init_conf(&func->dev);
+
 		sctrl = kzalloc(sizeof(struct esp_sdio_ctrl), GFP_KERNEL);
 
 		if (sctrl == NULL) {
@@ -542,6 +551,7 @@ static int esp_sdio_probe(struct sdio_func *func,
 			goto _err_dma;
 		}
 		epub->sif = (void *) sctrl;
+		epub->sdio_state = ESP_SDIO_STATE_FIRST_INIT;
 		sctrl->epub = epub;
 
 #ifdef USE_EXT_GPIO
@@ -560,11 +570,10 @@ static int esp_sdio_probe(struct sdio_func *func,
 		sctrl = sif_sctrl;
 		sif_sctrl = NULL;
 		epub = sctrl->epub;
+		epub->sdio_state = ESP_SDIO_STATE_SECOND_INIT;
 		SET_IEEE80211_DEV(epub->hw, &func->dev);
 		epub->dev = &func->dev;
 	}
-
-	epub->sdio_state = sif_sdio_state;
 
 	sctrl->func = func;
 	sdio_set_drvdata(func, sctrl);
@@ -579,7 +588,7 @@ static int esp_sdio_probe(struct sdio_func *func,
 	esp_dbg(ESP_DBG_TRACE, " %s >> power_on err %d \n", __func__, err);
 
 	if (err) {
-		if (sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT)
+		if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT)
 			goto _err_ext_gpio;
 		else
 			goto _err_second_init;
@@ -595,7 +604,7 @@ static int esp_sdio_probe(struct sdio_func *func,
 			"Set sdio block size %d failed: %d)\n",
 			sctrl->slc_blk_sz, err);
 		sdio_release_host(func);
-		if (sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT)
+		if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT)
 			goto _err_off;
 		else
 			goto _err_second_init;
@@ -612,19 +621,20 @@ static int esp_sdio_probe(struct sdio_func *func,
 
 	if (err) {
 		esp_dbg(ESP_DBG_ERROR, "esp_init_all failed: %d\n", err);
-		if (sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
+		if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
 			err = 0;
 			goto _err_first_init;
 		}
-		if (sif_sdio_state == ESP_SDIO_STATE_SECOND_INIT)
+		if (epub->sdio_state == ESP_SDIO_STATE_SECOND_INIT)
 			goto _err_second_init;
 	}
 
 	esp_dbg(ESP_DBG_TRACE, " %s return  %d\n", __func__, err);
-	if (sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
-		esp_dbg(ESP_DBG_ERROR, "first normal exit\n");
-		sif_sdio_state = ESP_SDIO_STATE_FIRST_NORMAL_EXIT;
-		up(&esp_powerup_sem);
+	if (epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
+		esp_dbg(ESP_DBG_TRACE, "first normal exit\n");
+		epub->sdio_state = ESP_SDIO_STATE_FIRST_NORMAL_EXIT;
+		/* Rescan the esp8089 after loading the initial firmware */
+		mmc_force_detect_change(host, msecs_to_jiffies(100), true);
 	}
 
 	return err;
@@ -643,14 +653,13 @@ static int esp_sdio_probe(struct sdio_func *func,
       _err_last:
 	kfree(sctrl);
       _err_first_init:
-	if (sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
+	if (epub && epub->sdio_state == ESP_SDIO_STATE_FIRST_INIT) {
 		esp_dbg(ESP_DBG_ERROR, "first error exit\n");
-		sif_sdio_state = ESP_SDIO_STATE_FIRST_ERROR_EXIT;
-		up(&esp_powerup_sem);
+		epub->sdio_state = ESP_SDIO_STATE_FIRST_ERROR_EXIT;
 	}
 	return err;
       _err_second_init:
-	sif_sdio_state = ESP_SDIO_STATE_SECOND_ERROR_EXIT;
+	epub->sdio_state = ESP_SDIO_STATE_SECOND_ERROR_EXIT;
 	esp_sdio_remove(func);
 	return err;
 }
@@ -658,8 +667,9 @@ static int esp_sdio_probe(struct sdio_func *func,
 static void esp_sdio_remove(struct sdio_func *func)
 {
 	struct esp_sdio_ctrl *sctrl = NULL;
+	struct esp_pub *epub = NULL;
 
-	esp_dbg(ESP_SHOW, "%s enter\n", __func__);
+	esp_dbg(ESP_DBG_TRACE, "%s enter\n", __func__);
 
 	sctrl = sdio_get_drvdata(func);
 
@@ -669,15 +679,15 @@ static void esp_sdio_remove(struct sdio_func *func)
 	}
 
 	do {
-		if (sctrl->epub == NULL) {
+		epub = sctrl->epub;
+		if (epub == NULL) {
 			esp_dbg(ESP_DBG_ERROR, "%s epub null\n", __func__);
 			break;
 		}
-		sctrl->epub->sdio_state = sif_sdio_state;
-		if (sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
-			if (sctrl->epub->sip) {
-				sip_detach(sctrl->epub->sip);
-				sctrl->epub->sip = NULL;
+		if (epub->sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
+			if (epub->sip) {
+				sip_detach(epub->sip);
+				epub->sip = NULL;
 				esp_dbg(ESP_DBG_TRACE,
 					"%s sip detached \n", __func__);
 			}
@@ -686,13 +696,13 @@ static void esp_sdio_remove(struct sdio_func *func)
 				ext_gpio_deinit();
 #endif
 		} else {
-			//sif_disable_target_interrupt(sctrl->epub);
-			atomic_set(&sctrl->epub->sip->state, SIP_STOP);
-			sif_disable_irq(sctrl->epub);
+			//sif_disable_target_interrupt(epub);
+			atomic_set(&epub->sip->state, SIP_STOP);
+			sif_disable_irq(epub);
 		}
 
-		if (sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
-			esp_pub_dealloc_mac80211(sctrl->epub);
+		if (epub->sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
+			esp_pub_dealloc_mac80211(epub);
 			esp_dbg(ESP_DBG_TRACE, "%s dealloc mac80211 \n",
 				__func__);
 
@@ -768,153 +778,24 @@ static struct sdio_driver esp_sdio_driver = {
 	.drv = {.pm = &esp_sdio_pm_ops,},
 };
 
-static int esp_sdio_dummy_probe(struct sdio_func *func,
-				const struct sdio_device_id *id)
-{
-	esp_dbg(ESP_DBG_ERROR, "%s enter\n", __func__);
-
-	up(&esp_powerup_sem);
-
-	return 0;
-}
-
-static void esp_sdio_dummy_remove(struct sdio_func *func)
-{
-	return;
-}
-
-static struct sdio_driver esp_sdio_dummy_driver = {
-	.name = "eagle_sdio_dummy",
-	.id_table = esp_sdio_devices,
-	.probe = esp_sdio_dummy_probe,
-	.remove = esp_sdio_dummy_remove,
-};
-
 static int /*__init*/ esp_sdio_init(void)
 {
-#define ESP_WAIT_UP_TIME_MS 11000
-	int err;
-	u64 ver;
-	int retry = 3;
-	bool powerup = false;
-	int edf_ret = 0;
-
-	esp_dbg(ESP_DBG_TRACE, "%s \n", __func__);
-
-#ifdef DRIVER_VER
-	ver = DRIVER_VER;
-	esp_dbg(ESP_SHOW, "\n***** EAGLE DRIVER VER:%llx*****\n\n", ver);
-#endif
-	edf_ret = esp_debugfs_init();
-
-	request_init_conf();
-
-	esp_wakelock_init();
-	esp_wake_lock();
-
-	do {
-		sema_init(&esp_powerup_sem, 0);
-
-		sif_platform_target_poweron();
-
-		sif_platform_rescan_card(1);
-
-		err = sdio_register_driver(&esp_sdio_dummy_driver);
-		if (err) {
-			esp_dbg(ESP_DBG_ERROR,
-				"eagle sdio driver registration failed, error code: %d\n",
-				err);
-			goto _fail;
-		}
-
-		if (down_timeout(&esp_powerup_sem,
-				 msecs_to_jiffies(ESP_WAIT_UP_TIME_MS)) ==
-		    0) {
-
-			powerup = true;
-			msleep(200);
-			break;
-		}
-
-		esp_dbg(ESP_SHOW, "%s ------ RETRY ------ \n", __func__);
-
-		sif_record_retry_config();
-
-		sdio_unregister_driver(&esp_sdio_dummy_driver);
-
-		sif_platform_rescan_card(0);
-
-		sif_platform_target_poweroff();
-
-	} while (retry--);
-
-	if (!powerup) {
-		esp_dbg(ESP_DBG_ERROR, "eagle sdio can not power up!\n");
-
-		err = -ENODEV;
-		goto _fail;
-	}
-
-	esp_dbg(ESP_SHOW, "%s power up OK\n", __func__);
-
-	sdio_unregister_driver(&esp_sdio_dummy_driver);
-
-	sif_sdio_state = ESP_SDIO_STATE_FIRST_INIT;
-	sema_init(&esp_powerup_sem, 0);
+	esp_debugfs_init();
 
 	sdio_register_driver(&esp_sdio_driver);
-
-	if ((down_timeout(&esp_powerup_sem,
-			  msecs_to_jiffies(ESP_WAIT_UP_TIME_MS)) == 0)
-	    && sif_get_ate_config() == 0) {
-		if (sif_sdio_state == ESP_SDIO_STATE_FIRST_NORMAL_EXIT) {
-			sdio_unregister_driver(&esp_sdio_driver);
-
-			sif_platform_rescan_card(0);
-
-			msleep(100);
-
-			sif_platform_rescan_card(1);
-
-			sif_sdio_state = ESP_SDIO_STATE_SECOND_INIT;
-
-			sdio_register_driver(&esp_sdio_driver);
-		}
-
-	}
-
-
-	esp_register_early_suspend();
-	esp_wake_unlock();
-	return err;
-
-      _fail:
-	esp_wake_unlock();
-	esp_wakelock_destroy();
-
-	return err;
+	return 0;
 }
 
 static void /*__exit*/ esp_sdio_exit(void)
 {
-	esp_dbg(ESP_SHOW, "%s \n", __func__);
-
-	esp_debugfs_exit();
-
-	esp_unregister_early_suspend();
-
 	sdio_unregister_driver(&esp_sdio_driver);
-
-	sif_platform_rescan_card(0);
-
-#ifndef FPGA_DEBUG
-	sif_platform_target_poweroff();
-#endif				/* !FPGA_DEBUG */
-
-	esp_wakelock_destroy();
+	esp_debugfs_exit();
 }
 
 MODULE_AUTHOR("Espressif System");
 MODULE_DESCRIPTION
     ("Driver for SDIO interconnected eagle low-power WLAN devices");
 MODULE_LICENSE("GPL");
+
+module_init(esp_sdio_init);
+module_exit(esp_sdio_exit);

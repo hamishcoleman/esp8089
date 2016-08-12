@@ -13,6 +13,7 @@
 #include <linux/firmware.h>
 #include <linux/netdevice.h>
 #include <linux/aio.h>
+#include <linux/property.h>
 
 #include "esp_file.h"
 #include "esp_debug.h"
@@ -109,19 +110,26 @@ struct esp_init_table_elem esp_init_table[MAX_ATTR_NUM] = {
 	{"attr23", -1, -1},
 };
 
-static void show_esp_init_table(struct esp_init_table_elem *econf)
+/* update init config table */
+static int set_init_config_attr(const char *attr, int attr_len, short value)
 {
 	int i;
-	for (i = 0; i < MAX_ATTR_NUM; i++)
-		if (esp_init_table[i].offset > -1)
-			esp_dbg(ESP_DBG_ERROR,
-				"%s: esp_init_table[%d] attr[%s] offset[%d] value[%d]\n",
-				__FUNCTION__, i, esp_init_table[i].attr,
-				esp_init_table[i].offset,
-				esp_init_table[i].value);
+
+	for (i = 0; i < MAX_ATTR_NUM; i++) {
+		if (!memcmp(esp_init_table[i].attr, attr, attr_len)) {
+			if (value < 0 || value > 255) {
+				esp_dbg(ESP_DBG_ERROR, "%s: attribute value for %s is out of range",
+					__func__, esp_init_table[i].attr);
+				return -1;
+			}
+			esp_init_table[i].value = value;
+			return 0;
+		}
+	}
+
+	return -1;
 }
 
-/* update init config table */
 static int update_init_config_attr(const char *attr, int attr_len,
 				   const char *val, int val_len)
 {
@@ -139,19 +147,7 @@ static int update_init_config_attr(const char *attr, int attr_len,
 		return -1;
 	}
 
-	for (i = 0; i < MAX_ATTR_NUM; i++) {
-		if (!memcmp(esp_init_table[i].attr, attr, attr_len)) {
-			if (value < 0 || value > 255) {
-				esp_dbg(ESP_DBG_ERROR, "%s: attribute value for %s is out of range",
-					__func__, esp_init_table[i].attr);
-				return -1;
-			}
-			esp_init_table[i].value = value;
-			return 0;
-		}
-	}
-
-	return -1;
+	return set_init_config_attr(attr, attr_len, value);
 }
 
 /* export config table settings to SDIO driver */
@@ -174,11 +170,17 @@ static void record_init_config(void)
 	}
 }
 
-int request_init_conf(void)
+int request_init_conf(struct device *dev)
 {
 	char *attr, *str, *p;
 	int attr_len, str_len;
 	int ret = 0;
+	u32 val;
+
+	/* Check for any parameters passed through devicetree (or acpi) */
+	if (device_property_read_u32(dev, "esp,crystal-26M-en", &val) == 0)
+		set_init_config_attr("crystal_26M_en", strlen("crystal_26M_en"),
+				     val);
 
 	/* parse optional parameter in the form of key1=value,key2=value,.. */
 	attr = NULL;
@@ -203,8 +205,6 @@ int request_init_conf(void)
 
 	if (attr_len && str != attr)
 		ret |= update_init_config_attr(attr, attr_len, str, str_len);
-
-	/* show_esp_init_table(esp_init_table); */
 
 	record_init_config();
 

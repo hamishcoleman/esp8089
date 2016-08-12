@@ -25,7 +25,7 @@ struct esp_init_table_elem {
 	short value;
 };
 
-int request_init_conf(void);
+int request_init_conf(struct device *dev);
 void fix_init_data(u8 * init_data_buf, int buf_size);
 
 #endif				/* _ESP_FILE_H_ */

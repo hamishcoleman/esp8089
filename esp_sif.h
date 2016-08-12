@@ -137,7 +137,6 @@ int sif_lldesc_write_sync(struct esp_pub *epub, u8 * buf, u32 len);
 int sif_lldesc_read_raw(struct esp_pub *epub, u8 * buf, u32 len,
 			bool noround);
 int sif_lldesc_write_raw(struct esp_pub *epub, u8 * buf, u32 len);
-void sif_platform_check_r1_ready(struct esp_pub *epub);
 
 int sif_platform_get_irq_no(void);
 int sif_platform_is_irq_occur(void);
@@ -170,13 +169,6 @@ struct slc_host_regs *sif_get_regs(struct esp_pub *epub);
 
 void sif_lock_bus(struct esp_pub *epub);
 void sif_unlock_bus(struct esp_pub *epub);
-
-void sif_platform_target_poweroff(void);
-void sif_platform_target_poweron(void);
-void sif_platform_target_speed(int high_speed);
-
-void sif_platform_reset_target(void);
-void sif_platform_rescan_card(unsigned insert);
 
 int sif_interrupt_target(struct esp_pub *epub, u8 index);
 #ifdef USE_EXT_GPIO
