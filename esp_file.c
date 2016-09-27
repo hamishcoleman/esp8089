@@ -343,7 +343,7 @@ int request_init_conf(void)
 
 			for (i = 0; i < MAX_ATTR_NUM; i++) {
 				if (strcmp(esp_init_table[i].attr, attr_name) == 0) {
-					esp_dbg(ESP_DBG_TRACE, "%s: attr_name[%s]", __FUNCTION__, attr_name); /* add by th */
+					esp_dbg(ESP_DBG_TRACE, "%s: attr_name[%s]\n", __FUNCTION__, attr_name); /* add by th */
 					esp_init_table[i].value = value;
 				}
 
