@@ -1,0 +1,11 @@
+
+# ignore files generated during kbuild
+*.ko
+*.o
+.*.ko.cmd
+.*.o.cmd
+.tmp_versions
+Module.symvers
+esp8089.mod.c
+modules.order
+
