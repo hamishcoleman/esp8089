@@ -1976,13 +1976,15 @@ int sip_write_memory(struct esp_sip *sip, u32 addr, u8 *buf, u16 len)
         u32 loadaddr;
         u8 *src;
         int err = 0;
-	u32 *t = NULL;
 
 	if (sip == NULL || sip->rawbuf == NULL) {
         	ESSERT(sip != NULL);
         	ESSERT(sip->rawbuf != NULL);
 		return -EINVAL;
 	}
+
+	esp_dbg(ESP_DBG_TRACE, "%s: addr=0x%08x buf=0x%p len=0x%08x\n",
+		__func__,addr,buf,len);
 
         memset(sip->rawbuf, 0, SIP_BOOT_BUF_SIZE);
 
@@ -2014,13 +2016,12 @@ int sip_write_memory(struct esp_sip *sip, u32 addr, u8 *buf, u16 len)
                 cmd->addr = loadaddr;
                 memcpy(sip->rawbuf+hdrs, src, bufsize);
 
-                t = (u32 *)sip->rawbuf;
-                esp_dbg(ESP_DBG_TRACE, "%s t0: 0x%08x t1: 0x%08x t2:0x%08x loadaddr 0x%08x \n", __func__, t[0], t[1], t[2], loadaddr);
+                esp_dbg(ESP_DBG_TRACE, "%s: fc[]=0x%02x,0x%02x len=0x%x cmdid=0x%x seq=0x%x loadaddr=0x%08x\n", __func__, chdr->fc[0], chdr->fc[1], chdr->len, chdr->c_cmdid, chdr->seq, loadaddr);
 
-				err = esp_common_write(sip->epub, sip->rawbuf, chdr->len, ESP_SIF_SYNC);
+		err = esp_common_write(sip->epub, sip->rawbuf, chdr->len, ESP_SIF_SYNC);
 
                 if (err) {
-                        esp_dbg(ESP_DBG_ERROR, "%s send buffer failed\n", __func__);
+                        esp_dbg(ESP_DBG_ERROR, "%s: send buffer failed\n", __func__);
                         return err;
                 }
 

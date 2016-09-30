@@ -192,7 +192,7 @@ int sif_io_sync(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
 	}
 
         if (bad_buf(buf)) {
-                esp_dbg(ESP_DBG_TRACE, "%s dst 0x%08x, len %d badbuf\n", __func__, addr, len);
+                esp_dbg(ESP_DBG_TRACE, "%s: addr=0x%08x len=%d badbuf\n", __func__, addr, len);
                 need_ibuf = true;
                 ibuf = sctrl->dma_buffer;
         } else {
@@ -205,7 +205,7 @@ int sif_io_sync(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
 
         if (flag & SIF_TO_DEVICE) {
 
-                esp_dbg(ESP_DBG_TRACE, "%s to addr 0x%08x, len %d \n", __func__, addr, len);
+                esp_dbg(ESP_DBG_TRACE, "%s: to device addr=0x%08x len=0x%x\n", __func__, addr, len);
                 if (need_ibuf)
                         memcpy(ibuf, buf, len);
 
@@ -220,7 +220,7 @@ int sif_io_sync(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
                 sdio_release_host(func);
         } else if (flag & SIF_FROM_DEVICE) {
 
-                esp_dbg(ESP_DBG_TRACE, "%s from addr 0x%08x, len %d \n", __func__, addr, len);
+                esp_dbg(ESP_DBG_TRACE, "%s: from device addr=0x%08x len=0x%x\n", __func__, addr, len);
 
                 sdio_claim_host(func);
 
@@ -553,7 +553,7 @@ static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *i
         func->enable_timeout = 100;
 
         err = esdio_power_on(sctrl);
-        esp_dbg(ESP_DBG_TRACE, " %s >> power_on err %d \n", __func__, err);
+        esp_dbg(ESP_DBG_TRACE, "%s: >> power_on err %d \n", __func__, err);
 
         if (err){
                 if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT)
@@ -765,7 +765,7 @@ static struct sdio_driver esp_sdio_driver = {
 
 static int esp_sdio_dummy_probe(struct sdio_func *func, const struct sdio_device_id *id)
 {
-        esp_dbg(ESP_DBG_ERROR, "%s enter\n", __func__);
+        esp_dbg(ESP_DBG_ERROR, "%s: enter\n", __func__);
 
         up(&esp_powerup_sem);
         
@@ -793,7 +793,7 @@ static int /*__init*/ esp_sdio_init(void)
         bool powerup = false;
         int edf_ret = 0;
 
-        esp_dbg(ESP_DBG_TRACE, "%s \n", __func__);
+        esp_dbg(ESP_DBG_TRACE, "%s: enter\n", __func__);
 
 #ifdef DRIVER_VER
         ver = DRIVER_VER;
@@ -847,7 +847,7 @@ static int /*__init*/ esp_sdio_init(void)
                 goto _fail;
         }
 
-        esp_dbg(ESP_SHOW, "%s power up OK\n", __func__);
+        esp_dbg(ESP_SHOW, "%s: power up OK\n", __func__);
 
         sdio_unregister_driver(&esp_sdio_dummy_driver);
         
