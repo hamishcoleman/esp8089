@@ -997,7 +997,7 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
                 offset = roundup(sizeof(struct sip_hdr), 4);
 
 #ifdef HOST_RC
-                esp_sip_dbg(ESP_DBG_TRACE, "%s offset0 %d \n", __func__, offset);
+                esp_sip_dbg(ESP_DBG_TRACE, "%s: offset=%d \n", __func__, offset);
                 memcpy(sip->tx_aggr_write_ptr + offset, (void *)&itx_info->control,
                        sizeof(struct sip_tx_rc));
 
@@ -1014,7 +1014,7 @@ static int sip_pack_pkt(struct esp_sip *sip, struct sk_buff *skb, int *pm_state)
                 tx_len = offset + skb->len;
                 shdr->len = tx_len;  /* actual len */
 
-                esp_sip_dbg(ESP_DBG_TRACE, "%s offset %d skblen %d txlen %d\n", __func__, offset, skb->len, tx_len);
+                esp_sip_dbg(ESP_DBG_TRACE, "%s: offset=%d skblen=%d txlen=%d\n", __func__, offset, skb->len, tx_len);
 
         }
 
