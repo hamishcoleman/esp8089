@@ -475,7 +475,7 @@ void sif_dsr(struct spi_device *spi)
 #endif
         static int dsr_cnt = 0, real_intr_cnt = 0, bogus_intr_cnt = 0;
         struct slc_host_regs *regs = &(sctrl->slc_regs);
-       esp_dbg(ESP_DBG_TRACE, " %s enter %d \n", __func__, dsr_cnt++);
+	esp_dbg(ESP_DBG_TRACE, "%s: enter dsr_cnt=%d\n", __func__, dsr_cnt++);
 
 #ifdef ESP_USE_SPI
 
@@ -513,7 +513,7 @@ void sif_dsr(struct spi_device *spi)
 		ret = esp_common_read_with_addr(sctrl->epub, REG_SLC_HOST_BASE + 8, (u8 *)regs, sizeof(struct slc_host_regs), ESP_SIF_NOSYNC);
 
                 if ( (regs->intr_raw & SLC_HOST_RX_ST) && (ret == 0) ) {
-                        esp_dbg(ESP_DBG_TRACE, "%s eal intr cnt: %d", __func__, ++real_intr_cnt);
+                        esp_dbg(ESP_DBG_TRACE, "%s: real_intr_cnt=%d\n", __func__, ++real_intr_cnt);
         	
 			esp_dsr(sctrl->epub);
 

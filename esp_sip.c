@@ -249,7 +249,7 @@ static void sip_recalc_credit_release(struct esp_sip *sip)
 
 static void sip_update_tx_credits(struct esp_sip *sip, u16 recycled_credits)
 {
-        esp_sip_dbg(ESP_DBG_TRACE, "%s:before add, credits is %d\n", __func__, atomic_read(&sip->tx_credits));
+        esp_sip_dbg(ESP_DBG_TRACE, "%s: before add, credits is %d\n", __func__, atomic_read(&sip->tx_credits));
         
 	if (recycled_credits & 0x800) {
 		atomic_set(&sip->tx_credits, (recycled_credits & 0x7ff));
@@ -257,7 +257,7 @@ static void sip_update_tx_credits(struct esp_sip *sip, u16 recycled_credits)
 	} else
 		atomic_add(recycled_credits, &sip->tx_credits);
 
-        esp_sip_dbg(ESP_DBG_TRACE, "%s:after add %d, credits is %d\n", __func__, recycled_credits, atomic_read(&sip->tx_credits));
+        esp_sip_dbg(ESP_DBG_TRACE, "%s: after add %d, credits is %d\n", __func__, recycled_credits, atomic_read(&sip->tx_credits));
 }
 
 void sip_trigger_txq_process(struct esp_sip *sip)
@@ -310,7 +310,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 	bool trigger_rxq = false;
 
 	if (skb == NULL) {
-		esp_sip_dbg(ESP_DBG_ERROR, "%s NULL SKB!!!!!!!! \n", __func__);
+		esp_sip_dbg(ESP_DBG_ERROR, "%s: NULL SKB!!!!!!!!\n", __func__);
 		return trigger_rxq;
 	}
 
@@ -318,14 +318,15 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 	bufptr = skb->data;
 
 
-	esp_sip_dbg(ESP_DBG_TRACE, "%s Hcredits 0x%08x, realCredits %d\n", __func__, hdr->h_credits, hdr->h_credits & SIP_CREDITS_MASK);
+	esp_sip_dbg(ESP_DBG_TRACE, "%s: Hcredits=0x%08x realCredits=%d\n",
+		__func__, hdr->h_credits, hdr->h_credits & SIP_CREDITS_MASK);
 	if (hdr->h_credits & SIP_CREDITS_MASK) {
 		sip_update_tx_credits(sip, hdr->h_credits & SIP_CREDITS_MASK);
 	}
 
 	hdr->h_credits &= ~SIP_CREDITS_MASK; /* clean credits in sip_hdr, prevent over-add */
 
-	esp_sip_dbg(ESP_DBG_TRACE, "%s credits %d\n", __func__, hdr->h_credits);
+	esp_sip_dbg(ESP_DBG_TRACE, "%s: credits=0x%08x\n", __func__, hdr->h_credits);
 
 	/*
 	 * first pkt's length is stored in  recycled_credits first 20 bits
@@ -336,7 +337,8 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 	first_pkt_len = hdr->h_credits >> 12;
 	hdr->len = first_pkt_len;
 
-	esp_dbg(ESP_DBG_TRACE, "%s first_pkt_len %d, whole pkt len %d \n", __func__, first_pkt_len, remains_len);
+	esp_dbg(ESP_DBG_TRACE, "%s: first_pkt_len=%d remains_len=%d\n",
+		__func__, first_pkt_len, remains_len);
 	if (first_pkt_len > remains_len) {
 		sip_recalc_credit_claim(sip, 0);
 		esp_dbg(ESP_DBG_ERROR, "first_pkt_len %d, whole pkt len %d\n", first_pkt_len, remains_len);
@@ -373,7 +375,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 		}
 		if (unlikely(hdr->seq != sip->rxseq++)) {
 			sip_recalc_credit_claim(sip, 0);
-			esp_dbg(ESP_DBG_ERROR, "%s seq mismatch! got %u, expect %u\n", __func__, hdr->seq, sip->rxseq-1);
+			esp_dbg(ESP_DBG_ERROR, "%s: seq mismatch! got %u, expect %u\n", __func__, hdr->seq, sip->rxseq-1);
 			sip->rxseq = hdr->seq + 1;
 			show_buf(bufptr, 32);
 			ESSERT(0);
@@ -381,7 +383,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 
 		if (SIP_HDR_IS_CTRL(hdr)) {
 			STRACE_RX_EVENT_INC();
-			esp_sip_dbg(ESP_DBG_TRACE, "seq %u \n", hdr->seq);
+			esp_sip_dbg(ESP_DBG_TRACE, "%s: seq=%u\n", __func__, hdr->seq);
 
 			ret = sip_parse_events(sip, bufptr);
 
@@ -392,7 +394,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 			int pkt_len_enc = 0, buf_len = 0, pulled_len = 0;
 
 			STRACE_RX_DATA_INC();
-			esp_sip_dbg(ESP_DBG_TRACE, "seq %u \n", hdr->seq);
+			esp_sip_dbg(ESP_DBG_TRACE, "%s: seq=%u\n", __func__, hdr->seq);
 			mac_ctrl = sip_parse_normal_mac_ctrl(skb, &pkt_len_enc, &buf_len, &pulled_len);
 			rskb = sip_parse_data_rx_info(sip, skb, pkt_len_enc, buf_len, mac_ctrl, &pulled_len);
 
@@ -437,7 +439,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 			static u8 frame_buf_ttl = 0;
 
 			ampdu_len = (struct esp_rx_ampdu_len *)(skb->data + hdr->len/sip->rx_blksz * sip->rx_blksz);
-			esp_sip_dbg(ESP_DBG_TRACE, "%s rx ampdu total len %u\n", __func__, hdr->len);
+			esp_sip_dbg(ESP_DBG_TRACE, "%s: rx ampdu total len %u\n", __func__, hdr->len);
 			if(skb->data != (u8 *)hdr) {
 				printk("%p %p\n", skb->data, hdr);
 				show_buf(skb->data, 512);
@@ -449,14 +451,14 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 			memcpy(&new_mac_ctrl, mac_ctrl, sizeof(struct esp_mac_rx_ctrl));
 			mac_ctrl = &new_mac_ctrl;
 			pkt_num = mac_ctrl->ampdu_cnt;
-			esp_sip_dbg(ESP_DBG_TRACE, "%s %d rx ampdu %u pkts, %d pkts dumped, first len %u\n",__func__,
+			esp_sip_dbg(ESP_DBG_TRACE, "%s: %d rx ampdu %u pkts, %d pkts dumped, first len %u\n",__func__,
 				__LINE__, (unsigned int)((hdr->len % sip->rx_blksz) / sizeof(struct esp_rx_ampdu_len)),
 				pkt_num, (unsigned int)ampdu_len->sublen);
 
 			pkt_total += mac_ctrl->ampdu_cnt;
-			//esp_sip_dbg(ESP_DBG_ERROR, "%s ampdu dropped %d/%d\n", __func__, pkt_dropped, pkt_total);
+			//esp_sip_dbg(ESP_DBG_ERROR, "%s: ampdu dropped %d/%d\n", __func__, pkt_dropped, pkt_total);
 			while (pkt_num > 0) {
-				esp_sip_dbg(ESP_DBG_TRACE, "%s %d ampdu sub state %02x,\n", __func__, __LINE__,
+				esp_sip_dbg(ESP_DBG_TRACE, "%s: %d ampdu sub state %02x,\n", __func__, __LINE__,
 					ampdu_len->substate);
 
 				if (sip_ampdu_occupy_buf(sip, ampdu_len)) { //pkt is dumped
@@ -543,7 +545,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 						}
 					}
 					pkt_dropped++;
-					esp_sip_dbg(ESP_DBG_LOG, "%s ampdu dropped %d/%d\n", __func__, pkt_dropped, pkt_total);
+					esp_sip_dbg(ESP_DBG_LOG, "%s: ampdu dropped %d/%d\n", __func__, pkt_dropped, pkt_total);
 				}
 				pkt_num--;
 				ampdu_len++;
@@ -552,7 +554,7 @@ static bool sip_rx_pkt_process(struct esp_sip * sip, struct sk_buff *skb)
 				frame_buf_ttl--;
 			skb_pull(skb, hdr->len - pulled_len);
 		} else {
-			esp_sip_dbg(ESP_DBG_ERROR, "%s %d unknown type\n", __func__, __LINE__);
+			esp_sip_dbg(ESP_DBG_ERROR, "%s: %d unknown type\n", __func__, __LINE__);
 		}
 
 _move_on:
@@ -656,15 +658,15 @@ int sip_rx(struct esp_pub *epub)
 			if (raw_seq != sip->to_host_seq) {
 				if (raw_seq == sip->to_host_seq + 1) { /* when last read pkt crc err, this situation may occur, but raw_seq mustn't < to_host_Seq */
 					sip->to_host_seq = raw_seq;
-					esp_dbg(ESP_DBG_TRACE, "warn: to_host_seq reg 0x%02x, seq 0x%02x", raw_seq, sip->to_host_seq);
+					esp_dbg(ESP_DBG_TRACE, "warn: to_host_seq reg 0x%02x, seq 0x%02x\n", raw_seq, sip->to_host_seq);
 					break;
 				}     
-				esp_dbg(ESP_DBG_ERROR, "err: to_host_seq reg 0x%02x, seq 0x%02x", raw_seq, sip->to_host_seq);
+				esp_dbg(ESP_DBG_ERROR, "err: to_host_seq reg 0x%02x, seq 0x%02x\n", raw_seq, sip->to_host_seq);
 				goto _err;
 			}
 		} while (0);
 	}
-        esp_sip_dbg(ESP_DBG_LOG, "%s enter\n", __func__);
+        esp_sip_dbg(ESP_DBG_LOG, "%s: enter\n", __func__);
 
 
         /* first read one block out, if we luck enough, that's it
@@ -768,7 +770,7 @@ int sip_rx(struct esp_pub *epub)
         } else {
 		sif_unlock_bus(epub);
                 skb_trim(first_skb, shdr->len);
-                esp_dbg(ESP_DBG_TRACE, " %s first_skb only\n", __func__);
+                esp_dbg(ESP_DBG_TRACE, "%s: first_skb only\n", __func__);
 
                 rx_skb = first_skb;
         }
@@ -2055,11 +2057,12 @@ int sip_send_cmd(struct esp_sip *sip, int cid, u32 cmdlen, void *cmd)
 		memcpy(pkt->buf, (u8 *)cmd, cmdlen);
 	}
 
-        esp_dbg(ESP_DBG_TRACE, "cid %d, len %u, seq %u \n", chdr->c_cmdid, chdr->len, chdr->seq);
+        esp_dbg(ESP_DBG_TRACE,
+		"%s: cmdid=%d len=%u seq=%u buf[0]=0x%08x buf[4]=0x%08x\n",
+		__func__, chdr->c_cmdid, chdr->len, chdr->seq,
+		*(u32 *)&pkt->buf[0], *(u32 *)&pkt->buf[4]);
 
-        esp_dbg(ESP_DBG_TRACE, "c1 0x%08x   c2 0x%08x\n", *(u32 *)&pkt->buf[0], *(u32 *)&pkt->buf[4]);
-
-		ret = esp_common_write(sip->epub, pkt->buf_begin, chdr->len, ESP_SIF_SYNC);
+	ret = esp_common_write(sip->epub, pkt->buf_begin, chdr->len, ESP_SIF_SYNC);
 
         if (ret)
                 esp_dbg(ESP_DBG_ERROR, "%s send cmd %d failed \n", __func__, cid);
@@ -2202,12 +2205,12 @@ sip_poll_resetting_event(struct esp_sip *sip)
 {
 	int ret = 0;
 
-        esp_dbg(ESP_DBG_TRACE, "polling resetting event... \n");
+        esp_dbg(ESP_DBG_TRACE, "%s: polling resetting event...\n",__func__);
 
 	if (gl_bootup_cplx)
 		ret = wait_for_completion_timeout(gl_bootup_cplx, 10 * HZ);
 
-	esp_dbg(ESP_DBG_TRACE, "******time remain****** = [%d]\n", ret);
+	esp_dbg(ESP_DBG_TRACE, "%s: ******time remain****** = [%d]\n", __func__, ret);
 	if (ret <= 0) {
 		esp_dbg(ESP_DBG_ERROR, "resetting event timeout\n");
 		return -ETIMEDOUT;

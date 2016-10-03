@@ -113,11 +113,11 @@ int esp_pub_init_all(struct esp_pub *epub)
         }
 #endif
         if (ret) {
-                esp_dbg(ESP_DBG_ERROR, "download firmware failed\n");
+                esp_dbg(ESP_DBG_ERROR, "%s: download firmware failed\n",__func__);
                 return ret;
         }
 
-        esp_dbg(ESP_DBG_TRACE, "download firmware OK \n");
+        esp_dbg(ESP_DBG_TRACE, "%s: download firmware OK\n",__func__);
 #else
         sip_send_bootup(epub->sip);
 #endif /* FPGA_DEBUG */
