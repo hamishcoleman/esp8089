@@ -842,7 +842,7 @@ int sip_post_init(struct esp_sip *sip, struct sip_evt_bootup2 *bevt)
 
 	sip_recalc_credit_init(sip);
 
-        esp_sip_dbg(ESP_DBG_TRACE, "%s tx_blksz %d rx_blksz %d mac addr %pM\n", __func__, sip->tx_blksz, sip->rx_blksz, epub->mac_addr);
+        esp_sip_dbg(ESP_DBG_TRACE, "%s: tx_blksz=%d rx_blksz=%d mac_addr=%pM\n", __func__, sip->tx_blksz, sip->rx_blksz, epub->mac_addr);
 
        	return 0;
 }
@@ -1346,14 +1346,14 @@ sip_txq_process(struct esp_pub *epub)
                  */
                 pkt_len = roundup(pkt_len, sip->tx_blksz);
                 blknum = pkt_len / sip->tx_blksz;
-                esp_dbg(ESP_DBG_TRACE, "%s skb_len %d pkt_len %d blknum %d\n", __func__, skb->len, pkt_len, blknum);
+                esp_dbg(ESP_DBG_TRACE, "%s: skb_len=%d pkt_len=%d blknum=%d\n", __func__, skb->len, pkt_len, blknum);
 
 	        if (unlikely(atomic_read(&sip->credit_status) == RECALC_CREDIT_ENABLE)) {      /* need recalc credit */
 			struct sip_hdr *hdr = (struct sip_hdr*)skb->data;
 			itx_info = IEEE80211_SKB_CB(skb);
         		if (!(itx_info->flags == 0xffffffff && SIP_HDR_GET_TYPE(hdr->fc[0]) == SIP_CTRL && hdr->c_cmdid == SIP_CMD_RECALC_CREDIT
 					&& blknum <= atomic_read(&sip->tx_credits) - sip->credit_to_reserve)) {         /* except cmd recalc credit */
-                        	esp_dbg(ESP_DBG_ERROR, "%s recalc credits!\n", __func__);
+				esp_dbg(ESP_DBG_ERROR, "%s: recalc credits!\n", __func__);
                         	STRACE_TX_OUT_OF_CREDIT_INC();
                         	queued_back = true;
                         	out_of_credits = true;
@@ -1364,14 +1364,14 @@ sip_txq_process(struct esp_pub *epub)
 				itx_info = IEEE80211_SKB_CB(skb);
         			if (itx_info->flags == 0xffffffff) {         /* priv ctrl pkt */
 					if (blknum > atomic_read(&sip->tx_credits) - sip->credit_to_reserve) {
-		                        	esp_dbg(ESP_DBG_TRACE, "%s cmd pkt out of credits!\n", __func__);
+						esp_dbg(ESP_DBG_TRACE, "%s: cmd pkt out of credits!\n", __func__);
                			        	STRACE_TX_OUT_OF_CREDIT_INC();
                         			queued_back = true;
                         			out_of_credits = true;
 						break;
 					}
 				} else {
-	                        	esp_dbg(ESP_DBG_TRACE, "%s out of credits!\n", __func__);
+					esp_dbg(ESP_DBG_TRACE, "%s: out of credits!\n", __func__);
                                 	STRACE_TX_OUT_OF_CREDIT_INC();
                		        	queued_back = true;
                         		out_of_credits = true;
@@ -1382,7 +1382,7 @@ sip_txq_process(struct esp_pub *epub)
                 tx_len += pkt_len;
                 if (tx_len >= SIP_TX_AGGR_BUF_SIZE) {
                         /* do we need to have limitation likemax 8 pkts in a row? */
-                        esp_dbg(ESP_DBG_TRACE, "%s too much pkts in one shot!\n", __func__);
+                        esp_dbg(ESP_DBG_TRACE, "%s: too much pkts in one shot!\n", __func__);
                         STRACE_TX_ONE_SHOT_INC();
                         tx_len -= pkt_len;
                         queued_back = true;
@@ -1395,9 +1395,9 @@ sip_txq_process(struct esp_pub *epub)
                         continue;
                 }
 
-                esp_sip_dbg(ESP_DBG_TRACE, "%s:before sub, credits is %d\n", __func__, atomic_read(&sip->tx_credits));
+                esp_sip_dbg(ESP_DBG_TRACE, "%s: before atomic_sub, tx_credits=%d\n", __func__, atomic_read(&sip->tx_credits));
                 atomic_sub(blknum, &sip->tx_credits);
-                esp_sip_dbg(ESP_DBG_TRACE, "%s:after sub %d,credits remains %d\n", __func__, blknum, atomic_read(&sip->tx_credits));
+                esp_sip_dbg(ESP_DBG_TRACE, "%s: after atomic_sub tx_credits=%d blknum=%d\n", __func__, atomic_read(&sip->tx_credits), blknum);
 
         }
 
@@ -1717,7 +1717,7 @@ static struct sk_buff * sip_parse_data_rx_info(struct esp_sip *sip, struct sk_bu
                 buf_len = roundup(pkt_len, 4);
         } else
                 pkt_len  = buf_len - 3 + ((pkt_len_enc - 1) & 0x3);
-        esp_dbg(ESP_DBG_TRACE, "%s pkt_len %u, pkt_len_enc %u!, delta %d \n", __func__, pkt_len, pkt_len_enc, pkt_len_enc - pkt_len);
+        esp_dbg(ESP_DBG_TRACE, "%s: pkt_len=%u pkt_len_enc=%u! (delta=%d)\n", __func__, pkt_len, pkt_len_enc, pkt_len_enc - pkt_len);
         do {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39))
 #ifndef NO_WMM_DUMMY
@@ -2171,7 +2171,7 @@ sip_poll_bootup_event(struct esp_sip *sip)
 {
 	int ret = 0;
 
-        esp_dbg(ESP_DBG_TRACE, "polling bootup event... \n");
+        esp_dbg(ESP_DBG_TRACE, "%s: polling bootup event...\n",__func__);
 
 	if (gl_bootup_cplx)
 		ret = wait_for_completion_timeout(gl_bootup_cplx, 2 * HZ);
@@ -2195,7 +2195,7 @@ sip_poll_bootup_event(struct esp_sip *sip)
 #endif
         
 	atomic_set(&sip->state, SIP_RUN);
-        esp_dbg(ESP_DBG_TRACE, "target booted up\n");
+        esp_dbg(ESP_DBG_TRACE, "%s: target booted up\n", __func__);
 
 	return ret;
 }
@@ -2205,7 +2205,7 @@ sip_poll_resetting_event(struct esp_sip *sip)
 {
 	int ret = 0;
 
-        esp_dbg(ESP_DBG_TRACE, "%s: polling resetting event...\n",__func__);
+        esp_dbg(ESP_DBG_TRACE, "%s: polling resetting event...\n", __func__);
 
 	if (gl_bootup_cplx)
 		ret = wait_for_completion_timeout(gl_bootup_cplx, 10 * HZ);
@@ -2216,7 +2216,7 @@ sip_poll_resetting_event(struct esp_sip *sip)
 		return -ETIMEDOUT;
 	}	
       
-        esp_dbg(ESP_DBG_TRACE, "target resetting %d %p\n", ret, gl_bootup_cplx);
+        esp_dbg(ESP_DBG_TRACE, "%s: target resetting ret=%d gl_bootup_cplx=%p\n", __func__, ret, gl_bootup_cplx);
 
 	return 0;
 }

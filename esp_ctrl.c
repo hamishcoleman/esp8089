@@ -388,9 +388,9 @@ int sip_send_config(struct esp_pub *epub, struct ieee80211_conf * conf)
         if (!skb)
                 return -EINVAL;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
-        esp_dbg(ESP_DBG_TRACE, "%s config center freq %d\n", __func__, conf->chandef.chan->center_freq);
+        esp_dbg(ESP_DBG_TRACE, "%s: config center freq=%d\n", __func__, conf->chandef.chan->center_freq);
 #else
-        esp_dbg(ESP_DBG_TRACE, "%s config center freq %d\n", __func__, conf->channel->center_freq);
+        esp_dbg(ESP_DBG_TRACE, "%s: config center freq=%d\n", __func__, conf->channel->center_freq);
 #endif
         configcmd = (struct sip_cmd_config *)(skb->data + sizeof(struct sip_hdr));
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))

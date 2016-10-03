@@ -596,9 +596,9 @@ static int esp_sdio_probe(struct sdio_func *func, const struct sdio_device_id *i
 			goto _err_second_init;
         }
 
-        esp_dbg(ESP_DBG_TRACE, " %s return  %d\n", __func__, err);
+        esp_dbg(ESP_DBG_TRACE, "%s: return err=%d\n", __func__, err);
 	if(sif_sdio_state == ESP_SDIO_STATE_FIRST_INIT){
-		esp_dbg(ESP_DBG_ERROR, "first normal exit\n");
+		esp_dbg(ESP_DBG_ERROR, "%s: first normal exit\n", __func__);
 		sif_sdio_state = ESP_SDIO_STATE_FIRST_NORMAL_EXIT;
 		up(&esp_powerup_sem);
 	}
@@ -635,18 +635,18 @@ static void esp_sdio_remove(struct sdio_func *func)
 {
         struct esp_sdio_ctrl *sctrl = NULL;
 
-	esp_dbg(ESP_SHOW, "%s enter\n", __func__);
+	esp_dbg(ESP_SHOW, "%s: enter\n", __func__);
 
         sctrl = sdio_get_drvdata(func);
 
         if (sctrl == NULL) {
-                esp_dbg(ESP_DBG_ERROR, "%s no sctrl\n", __func__);
+                esp_dbg(ESP_DBG_ERROR, "%s: no sctrl\n", __func__);
                 return;
         }
 
         do {
                 if (sctrl->epub == NULL) {
-                        esp_dbg(ESP_DBG_ERROR, "%s epub null\n", __func__);
+                        esp_dbg(ESP_DBG_ERROR, "%s: epub null\n", __func__);
                         break;
                 }
 		sctrl->epub->sdio_state = sif_sdio_state;
@@ -654,7 +654,7 @@ static void esp_sdio_remove(struct sdio_func *func)
                 	if (sctrl->epub->sip) {
                         	sip_detach(sctrl->epub->sip);
                         	sctrl->epub->sip = NULL;
-                        	esp_dbg(ESP_DBG_TRACE, "%s sip detached \n", __func__);
+				esp_dbg(ESP_DBG_TRACE, "%s: sip detached \n", __func__);
                 	}
 #ifdef USE_EXT_GPIO	
 			if (sif_get_ate_config() == 0)
@@ -668,7 +668,7 @@ static void esp_sdio_remove(struct sdio_func *func)
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 3, 0))
                 esdio_power_off(sctrl);
-                esp_dbg(ESP_DBG_TRACE, "%s power off \n", __func__);
+                esp_dbg(ESP_DBG_TRACE, "%s: power off \n", __func__);
 #endif /* kernel < 3.3.0 */
 
 #ifdef TEST_MODE
@@ -676,12 +676,12 @@ static void esp_sdio_remove(struct sdio_func *func)
 #endif /* TEST_MODE */
 		if(sif_sdio_state != ESP_SDIO_STATE_FIRST_NORMAL_EXIT){
                 	esp_pub_dealloc_mac80211(sctrl->epub);
-                	esp_dbg(ESP_DBG_TRACE, "%s dealloc mac80211 \n", __func__);
+			esp_dbg(ESP_DBG_TRACE, "%s: dealloc mac80211\n", __func__);
 			
 			if (sctrl->dma_buffer) {
 				kfree(sctrl->dma_buffer);
 				sctrl->dma_buffer = NULL;
-				esp_dbg(ESP_DBG_TRACE, "%s free dma_buffer \n", __func__);
+				esp_dbg(ESP_DBG_TRACE, "%s: free dma_buffer\n", __func__);
 			}
 
 			kfree(sctrl);
@@ -691,7 +691,7 @@ static void esp_sdio_remove(struct sdio_func *func)
         
 	sdio_set_drvdata(func,NULL);
 	
-        esp_dbg(ESP_DBG_TRACE, "eagle sdio remove complete\n");
+        esp_dbg(ESP_DBG_TRACE, "%s: return\n", __func__);
 }
 
 MODULE_DEVICE_TABLE(sdio, esp_sdio_devices);
@@ -888,7 +888,7 @@ _fail:
 
 static void  /*__exit*/ esp_sdio_exit(void) 
 {
-	esp_dbg(ESP_SHOW, "%s \n", __func__);
+	esp_dbg(ESP_SHOW, "%s: enter\n", __func__);
 
 	esp_debugfs_exit();
 	

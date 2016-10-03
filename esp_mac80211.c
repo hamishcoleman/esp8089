@@ -192,9 +192,9 @@ static int esp_op_add_interface(struct ieee80211_hw *hw,
 	struct sip_cmd_setvif svif;
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 34))
-	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter: type %d, addr %pM\n", __func__, vif->type, conf->mac_addr);
+	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s: enter type=%d addr=%pM\n", __func__, vif->type, conf->mac_addr);
 #else
-	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s enter: type %d, addr %pM\n", __func__, vif->type, vif->addr);
+	ESP_IEEE80211_DBG(ESP_DBG_OP, "%s: enter: type=%d addr=%pM\n", __func__, vif->type, vif->addr);
 #endif
 
 	memset(&svif, 0, sizeof(struct sip_cmd_setvif));
@@ -223,23 +223,23 @@ static int esp_op_add_interface(struct ieee80211_hw *hw,
 		case NL80211_IFTYPE_STATION:
 			//if (svif.index == 1)
 			//	vif->type = NL80211_IFTYPE_UNSPECIFIED;
-			ESP_IEEE80211_DBG(ESP_SHOW, "%s STA \n", __func__);
+			ESP_IEEE80211_DBG(ESP_SHOW, "%s: STA\n", __func__);
 			svif.op_mode = 0;
 			svif.is_p2p = 0;
 			break;
 		case NL80211_IFTYPE_AP:
-			ESP_IEEE80211_DBG(ESP_SHOW, "%s AP \n", __func__);
+			ESP_IEEE80211_DBG(ESP_SHOW, "%s: AP\n", __func__);
 			svif.op_mode = 1;
 			svif.is_p2p = 0;
 			break;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37))
 		case NL80211_IFTYPE_P2P_CLIENT:
-			ESP_IEEE80211_DBG(ESP_SHOW, "%s P2P_CLIENT \n", __func__);
+			ESP_IEEE80211_DBG(ESP_SHOW, "%s: P2P_CLIENT\n", __func__);
 			svif.op_mode = 0;
 			svif.is_p2p = 1;
 			break;
 		case NL80211_IFTYPE_P2P_GO:
-			ESP_IEEE80211_DBG(ESP_SHOW, "%s P2P_GO \n", __func__);
+			ESP_IEEE80211_DBG(ESP_SHOW, "%s: P2P_GO\n", __func__);
 			svif.op_mode = 1;
 			svif.is_p2p = 1;
 			break;
@@ -250,7 +250,7 @@ static int esp_op_add_interface(struct ieee80211_hw *hw,
 		case NL80211_IFTYPE_WDS:
 		case NL80211_IFTYPE_MONITOR:
 		default:
-			ESP_IEEE80211_DBG(ESP_DBG_ERROR, "%s does NOT support type %d\n", __func__, vif->type);
+			ESP_IEEE80211_DBG(ESP_DBG_ERROR, "%s: does NOT support type %d\n", __func__, vif->type);
 			return -EOPNOTSUPP;
 	}
 
@@ -524,7 +524,7 @@ static int esp_op_config(struct ieee80211_hw *hw, struct ieee80211_conf *conf)
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter 0x%08x\n", __func__, changed);
+        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s: enter changed=0x%08x\n", __func__, changed);
 
         if (changed & (IEEE80211_CONF_CHANGE_CHANNEL | IEEE80211_CONF_CHANGE_IDLE)) {
                 sip_send_config(epub, &hw->conf);
@@ -630,7 +630,7 @@ static void esp_op_bss_info_changed(struct ieee80211_hw *hw,
 	// ESP_IEEE80211_DBG(ESP_DBG_OP, " %s enter: vif addr %pM, changed %x, assoc %x, bssid %pM\n", __func__, vif->addr, changed, info->assoc, info->bssid);
 	// sdata->u.sta.bssid
 
-        ESP_IEEE80211_DBG(ESP_DBG_OP, " %s enter: changed %x, assoc %x, bssid %pM\n", __func__, changed, info->assoc, info->bssid);
+        ESP_IEEE80211_DBG(ESP_DBG_OP, "%s: enter changed=%x assoc=%x bssid=%pM\n", __func__, changed, info->assoc, info->bssid);
 
         if (vif->type == NL80211_IFTYPE_STATION) {
 		if ((changed & BSS_CHANGED_BSSID) ||
@@ -646,7 +646,7 @@ static void esp_op_bss_info_changed(struct ieee80211_hw *hw,
 			memset(epub->wl.bssid, 0, ETH_ALEN);
 			sip_send_bss_info_update(epub, evif, (u8*)info->bssid, info->assoc);
 		} else {
-			ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s wrong mode of STA mode\n", __func__);
+			ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s: wrong mode of STA mode\n", __func__);
 		}
 	} else if (vif->type == NL80211_IFTYPE_AP) {
 		if ((changed & BSS_CHANGED_BEACON_ENABLED) ||
@@ -683,7 +683,7 @@ static void esp_op_bss_info_changed(struct ieee80211_hw *hw,
 static u64 esp_op_prepare_multicast(struct ieee80211_hw *hw,
                                     int mc_count, struct dev_addr_list *mc_list)
 {
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
+        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s: enter\n", __func__);
 
         return 0;
 }
@@ -691,7 +691,7 @@ static u64 esp_op_prepare_multicast(struct ieee80211_hw *hw,
 static u64 esp_op_prepare_multicast(struct ieee80211_hw *hw,
                                     struct netdev_hw_addr_list *mc_list)
 {
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
+        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s: enter\n", __func__);
 
         return 0;
 }
@@ -714,7 +714,7 @@ static void esp_op_configure_filter(struct ieee80211_hw *hw,
 {
         struct esp_pub *epub = (struct esp_pub *)hw->priv;
 
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
+        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s: enter\n", __func__);
 
         epub->rx_filter = 0;
 
@@ -1283,7 +1283,7 @@ static int esp_op_conf_tx(struct ieee80211_hw *hw, u16 queue,
 #endif
 {
         struct esp_pub *epub = (struct esp_pub *)hw->priv;
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
+        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s: enter\n", __func__);
         return sip_send_wmm_params(epub, queue, params);
 }
 
@@ -1334,7 +1334,7 @@ static void esp_op_rfkill_poll(struct ieee80211_hw *hw)
 {
         struct esp_pub *epub = (struct esp_pub *)hw->priv;
 
-        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s enter \n", __func__);
+        ESP_IEEE80211_DBG(ESP_DBG_TRACE, "%s: enter\n", __func__);
 
         wiphy_rfkill_set_hw_state(hw->wiphy,
                                   test_bit(ESP_WL_FLAG_RFKILL, &epub->wl.flags) ? true : false);
