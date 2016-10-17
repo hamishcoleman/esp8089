@@ -39,7 +39,9 @@ static void  /*__exit*/ esp_sdio_exit(void);
 #define ESP_DMA_IBUFSZ   2048
 
 //unsigned int esp_msg_level = 0;
-unsigned int esp_msg_level = ESP_DBG_ERROR | ESP_SHOW | ESP_DBG_TRACE;
+unsigned int esp_msg_level = ESP_DBG_ERROR | ESP_SHOW;
+module_param(esp_msg_level, int, 0);
+MODULE_PARM_DESC(esp_msg_level, "Bitmask of log message categories to show");
 
 static struct semaphore esp_powerup_sem;
 
