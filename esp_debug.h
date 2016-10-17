@@ -93,4 +93,9 @@ void esp_show_tx_rates(struct ieee80211_tx_rate *rates);
     esp_dbg(ESP_DBG_SDIO,fmt, ##args);          \
 } while (0)
 
+#define sdio_dbg_epub(epub, fmt, args...) do {  \
+    struct esp_sdio_ctrl *sctrl = (struct esp_sdio_ctrl *)epub->sif; \
+    sdio_dbg(sctrl->func, fmt, ##args);         \
+} while (0)
+
 #endif /* _DEBUG_H_ */

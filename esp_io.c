@@ -56,6 +56,7 @@ int esp_common_write(struct esp_pub *epub, u8 *buf, u32 len, int sync)
 
 int esp_common_read_with_addr(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, int sync)
 {
+    sdio_dbg_epub(epub, "addr=0x%x len=0x%x buf=?\n", addr, len);
 	if (sync) {
 #ifdef ESP_USE_SDIO
 		return sif_io_sync(epub, addr, buf, len, SIF_FROM_DEVICE | SIF_SYNC | SIF_BYTE_BASIS | SIF_INC_ADDR);
@@ -77,6 +78,8 @@ int esp_common_read_with_addr(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, 
 
 int esp_common_write_with_addr(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, int sync)
 {
+    sdio_dbg_epub(epub, "addr=0x%x len=0x%x buf=0x%02x\n", addr, len, *buf);
+
 	if (sync) {
 #ifdef ESP_USE_SDIO
 		return sif_io_sync(epub, addr, buf, len, SIF_TO_DEVICE | SIF_SYNC | SIF_BYTE_BASIS | SIF_INC_ADDR);
@@ -102,6 +105,7 @@ int esp_common_readbyte_with_addr(struct esp_pub *epub, u32 addr, u8 *buf, int s
 		sif_lock_bus(epub);
 		*buf = sdio_io_readb(epub, addr, &res);
 		sif_unlock_bus(epub);
+                sdio_dbg_epub(epub, "addr=0x%x result=0x%02x (sync)\n", addr, *buf);
 		return res;
 #endif
 #ifdef ESP_USE_SPI
@@ -111,6 +115,7 @@ int esp_common_readbyte_with_addr(struct esp_pub *epub, u32 addr, u8 *buf, int s
 #ifdef ESP_USE_SDIO
 		int res;
 		*buf = sdio_io_readb(epub, addr, &res);
+                sdio_dbg_epub(epub, "addr=0x%x result=0x%02x (no sync)\n", addr, *buf);
 		return res;
 #endif
 #ifdef ESP_USE_SPI
@@ -128,6 +133,7 @@ int esp_common_writebyte_with_addr(struct esp_pub *epub, u32 addr, u8 buf, int s
 #ifdef ESP_USE_SDIO
 		int res;
 		sif_lock_bus(epub);
+                sdio_dbg_epub(epub, "addr=0x%x buf=0x%02x (sync)\n", addr, buf);
 		sdio_io_writeb(epub, buf, addr, &res);
 		sif_unlock_bus(epub);
 		return res;
@@ -139,6 +145,7 @@ int esp_common_writebyte_with_addr(struct esp_pub *epub, u32 addr, u8 buf, int s
 #ifdef ESP_USE_SDIO
 		int res;
 		sdio_io_writeb(epub, buf, addr, &res);
+                sdio_dbg_epub(epub, "addr=0x%x buf=0x%02x (sync)\n", addr, buf);
 		return res;
 #endif
 #ifdef ESP_USE_SPI
@@ -163,6 +170,9 @@ int sif_read_reg_window(struct esp_pub *epub, unsigned int reg_addr, u8 *value)
 
 	p_tbuf[0] = 0x80 | (reg_addr & 0x1f);
 
+        sdio_dbg_epub(epub, "write %s(0x%x) = 0x%02x\n",
+            "SLC_HOST_WIN_CMD", SLC_HOST_WIN_CMD, *p_tbuf);
+
 	ret = esp_common_write_with_addr(epub, SLC_HOST_WIN_CMD, p_tbuf, 1, ESP_SIF_NOSYNC);
 
 	if(ret == 0)
@@ -172,6 +182,8 @@ int sif_read_reg_window(struct esp_pub *epub, unsigned int reg_addr, u8 *value)
 				mdelay(10);
 			retry --;
 			ret = esp_common_read_with_addr(epub, SLC_HOST_STATE_W0, p_tbuf, 4, ESP_SIF_NOSYNC);
+                        sdio_dbg_epub(epub, "read %s(0x%x) = 0x%02x%02x%02x%02x\n",
+                            "SLC_HOST_STATE_W0", SLC_HOST_STATE_W0, p_tbuf[0], p_tbuf[1], p_tbuf[2], p_tbuf[3]);
 		}while(retry >0 && ret != 0);
 	}
 
@@ -197,6 +209,9 @@ int sif_write_reg_window(struct esp_pub *epub, unsigned int reg_addr,u8 *value)
     	memcpy(p_tbuf,value,4);
     	p_tbuf[4] = 0xc0 |(reg_addr & 0x1f);
 
+        sdio_dbg_epub(epub, "write %s(0x%x) = 0x%02x%02x%02x%02x%02x\n",
+            "SLC_HOST_CONF_W5", SLC_HOST_CONF_W5, p_tbuf[0], p_tbuf[1], p_tbuf[2], p_tbuf[3], p_tbuf[4]);
+
     	ret = esp_common_write_with_addr(epub, SLC_HOST_CONF_W5, p_tbuf, 5, ESP_SIF_NOSYNC);
 
 	kfree(p_tbuf);
@@ -209,9 +224,13 @@ int sif_ack_target_read_err(struct esp_pub *epub)
 	int ret;
 
 	ret = sif_read_reg_window(epub, SLC_RX_LINK, (u8 *)value);
+        sdio_dbg_epub(epub, "read %s(0x%x) = 0x%02x\n",
+            "SLC_RX_LINK", SLC_RX_LINK, value);
 	if(ret)
 		return ret;
 	value[0] |= SLC_RXLINK_START;
+        sdio_dbg_epub(epub, "write %s(0x%x) = 0x%02x\n",
+            "SLC_RX_LINK", SLC_RX_LINK, value);
 	ret = sif_write_reg_window(epub, SLC_RX_LINK, (u8 *)value);
 	return ret;
 }
@@ -286,6 +305,8 @@ u16 gpio_forbidden = 0;
 int sif_interrupt_target(struct esp_pub *epub, u8 index)
 {
 	u8 low_byte = BIT(index);
+        sdio_dbg_epub(epub, "write %s(0x%x) = 0x%02x\n",
+            "SLC_HOST_CONF_W4+2", SLC_HOST_CONF_W4+2, low_byte);
 	return esp_common_writebyte_with_addr(epub, SLC_HOST_CONF_W4 + 2, low_byte, ESP_SIF_NOSYNC);
 	
 }
@@ -396,6 +417,11 @@ void check_target_id(struct esp_pub *epub)
 
 	sif_unlock_bus(epub);
 
+        sdio_dbg_epub(epub, "read %s(0x%x) = 0x%02x\n",
+            "SLC_HOST_DATE", SLC_HOST_DATE, date);
+        sdio_dbg_epub(epub, "read %s(0x%x) = 0x%02x\n",
+            "SLC_HOST_ID", SLC_HOST_ID, EPUB_TO_CTRL(epub)->target_id);
+
         esp_dbg(ESP_DBG_LOG, "\n\n \t\t SLC data 0x%08x, ID 0x%08x\n\n", date, EPUB_TO_CTRL(epub)->target_id);
 
         switch(EPUB_TO_CTRL(epub)->target_id) {
@@ -435,6 +461,8 @@ void check_target_id(struct esp_pub *epub)
 			err = esp_common_writebyte_with_addr(epub, SLC_HOST_CONF_W1 + 2, byte2, ESP_SIF_NOSYNC);
 			err = esp_common_writebyte_with_addr(epub, SLC_HOST_CONF_W1 + 3, byte3, ESP_SIF_NOSYNC);
 			sif_unlock_bus(epub);
+                        sdio_dbg_epub(epub, "write %s(0x%x) = 0x%02x 0x%02x 0x%0x2 0x%02x\n",
+                            "SLC_HOST_CONF_W1", SLC_HOST_CONF_W1, low_byte, high_byte, byte2, byte3);
 		}while(0);
                 break;
         default:
