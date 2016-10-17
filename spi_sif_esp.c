@@ -2261,7 +2261,7 @@ static int __init esp_spi_init(void)
         bool powerup = false;
         int edf_ret = 0;
 
-        esp_dbg(ESP_DBG_TRACE, "%s \n", __func__);
+        esp_dbg(ESP_DBG_TRACE, "%s enter\n", __func__);
 
 #ifdef REGISTER_SPI_BOARD_INFO
 	sif_platform_register_board_info();
@@ -2269,7 +2269,7 @@ static int __init esp_spi_init(void)
 
 #ifdef DRIVER_VER
         ver = DRIVER_VER;
-        esp_dbg(ESP_SHOW, "EAGLE DRIVER VER:%llx (spi)\n", ver);
+        esp_dbg(ESP_SHOW, "%s: DRIVER_VER=%llx (spi)\n", __func__, ver);
 #endif
         edf_ret = esp_debugfs_init();
 

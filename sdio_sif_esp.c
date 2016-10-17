@@ -799,7 +799,7 @@ static int /*__init*/ esp_sdio_init(void)
 
 #ifdef DRIVER_VER
         ver = DRIVER_VER;
-        esp_dbg(ESP_SHOW, "EAGLE DRIVER VER:%llx (sdio)\n", ver);
+        esp_dbg(ESP_SHOW, "%s: DRIVER_VER=%llx (sdio)\n", __func__, ver);
 #endif
         edf_ret = esp_debugfs_init();
 

@@ -263,7 +263,7 @@ int sip_parse_events(struct esp_sip *sip, u8 *buf)
                 u8 *p = (buf + sizeof(struct sip_hdr) + sizeof(u16));
                 u16 *len = (u16 *)(buf + sizeof(struct sip_hdr));
 		char test_res_str[560];
-		esp_dbg(ESP_SHOW, "esp_host: ver:%llx\n", DRIVER_VER);
+		esp_dbg(ESP_SHOW, "esp_host: DRIVER_VER=%llx\n", DRIVER_VER);
 
 		sprintf(test_res_str, "esp_target: %.*s", *len, p);
 		
