@@ -47,6 +47,7 @@ enum {
         ESP_DBG_OP = BIT(6),
 	ESP_DBG_PS = BIT(7),
 	ESP_ATE = BIT(8),
+        ESP_DBG_SDIO = BIT(9),
         ESP_DBG_ALL = 0xffffffff
 };
 
@@ -84,5 +85,12 @@ void esp_show_rcstatus(struct sip_rc_status *rcstatus);
 
 void esp_show_tx_rates(struct ieee80211_tx_rate *rates);
 #endif /* HOST_RC */
+
+#define sdio_dbg(sdio,fmt, args...) do {        \
+    esp_dbg(ESP_DBG_SDIO,"%s:fn%i:%s: ",     \
+        mmc_hostname(sdio->card->host),         \
+        sdio->num, __func__ );                  \
+    esp_dbg(ESP_DBG_SDIO,fmt, ##args);          \
+} while (0)
 
 #endif /* _DEBUG_H_ */
