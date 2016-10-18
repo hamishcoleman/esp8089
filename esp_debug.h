@@ -48,6 +48,7 @@ enum {
 	ESP_DBG_PS = BIT(7),
 	ESP_ATE = BIT(8),
         ESP_DBG_SDIO = BIT(9),
+        ESP_TRACE_ESP_IO = BIT(10),
         ESP_DBG_ALL = 0xffffffff
 };
 
@@ -86,16 +87,20 @@ void esp_show_rcstatus(struct sip_rc_status *rcstatus);
 void esp_show_tx_rates(struct ieee80211_tx_rate *rates);
 #endif /* HOST_RC */
 
-#define sdio_dbg(sdio,fmt, args...) do {        \
-    esp_dbg(ESP_DBG_SDIO,"%s:fn%i:%s: ",     \
+#define sdio_dbg(mask, sdio,fmt, args...) do {        \
+    esp_dbg(mask,"%s:fn%i:%s: ",     \
         mmc_hostname(sdio->card->host),         \
         sdio->num, __func__ );                  \
-    esp_dbg(ESP_DBG_SDIO,fmt, ##args);          \
+    esp_dbg(mask,fmt, ##args);          \
+} while (0)
+
+#define trace_epub(mask, epub, fmt, args...) do {  \
+    struct esp_sdio_ctrl *sctrl = (struct esp_sdio_ctrl *)epub->sif; \
+    sdio_dbg(mask, sctrl->func, fmt, ##args);         \
 } while (0)
 
 #define sdio_dbg_epub(epub, fmt, args...) do {  \
-    struct esp_sdio_ctrl *sctrl = (struct esp_sdio_ctrl *)epub->sif; \
-    sdio_dbg(sctrl->func, fmt, ##args);         \
+    trace_epub(ESP_DBG_SDIO, epub, fmt, args); \
 } while (0)
 
 #endif /* _DEBUG_H_ */

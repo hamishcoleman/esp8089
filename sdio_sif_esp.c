@@ -123,6 +123,9 @@ int sif_io_raw(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
 		goto _exit;
 	}
 
+        sdio_dbg_epub(epub, "addr=0x%x buf= len=0x%x flag=0x%x\n",
+            addr,len,flag);
+
         sctrl = (struct esp_sdio_ctrl *)epub->sif;
         func = sctrl->func;
 	if (func == NULL) {
@@ -184,6 +187,9 @@ int sif_io_sync(struct esp_pub *epub, u32 addr, u8 *buf, u32 len, u32 flag)
 		err = -EINVAL;
 		goto _exit;
 	}
+
+        sdio_dbg_epub(epub, "addr=0x%x buf= len=0x%x flag=0x%x\n",
+            addr,len,flag);
 
         sctrl = (struct esp_sdio_ctrl *)epub->sif;
         func = sctrl->func;
@@ -323,6 +329,8 @@ int sif_lldesc_read_raw(struct esp_pub *epub, u8 *buf, u32 len, bool noround)
                 break;
         }
 
+        sdio_dbg_epub(epub, "buf= len=0x%x noround=0x%x\n", len);
+
         return sif_io_raw((epub), (sctrl->slc_window_end_addr - 2 - (len)), (buf), (read_len), SIF_FROM_DEVICE | SIF_BYTE_BASIS | SIF_INC_ADDR);
 }
 
@@ -349,6 +357,9 @@ int sif_lldesc_write_raw(struct esp_pub *epub, u8 *buf, u32 len)
                 write_len = len;
                 break;
         }
+
+        sdio_dbg_epub(epub, "buf= len=0x%x\n", len);
+
         return sif_io_raw((epub), (sctrl->slc_window_end_addr - (len)), (buf), (write_len), SIF_TO_DEVICE | SIF_BYTE_BASIS | SIF_INC_ADDR);
 
 }
